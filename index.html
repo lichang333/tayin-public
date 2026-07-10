@@ -46,8 +46,8 @@
   .lg-sw.lv3 { background: var(--l3); } .lg-sw.lv4 { background: var(--l4); } .lg-sw.lv5 { background: var(--l5); }
   .lg-lv { color: var(--text-mid); font-weight: 600; }
 
-  .stage { position: relative; max-width: 880px; width: 100%; overflow: hidden; }
-  svg { width: 100%; height: auto; max-height: 76vh; display: block; overflow: hidden; touch-action: pan-y; }
+  .stage { position: relative; max-width: 1040px; width: 100%; overflow: hidden; }
+  svg { width: 100%; height: auto; max-height: 86vh; display: block; overflow: hidden; touch-action: pan-y; }
   .zoombar { position: absolute; right: 8px; bottom: 8px; z-index: 8; display: flex; flex-direction: column; gap: 6px; }
   .zoombar button { width: 34px; height: 34px; border-radius: 999px; border: 1.3px solid var(--ink);
     background: rgba(251,248,241,0.92); color: var(--ink); font-size: 20px; font-weight: 700; line-height: 1;
@@ -107,11 +107,11 @@
   .foot a { color: var(--copper); text-decoration: none; }
 
   .tabs { display: flex; flex-wrap: nowrap; justify-content: flex-start; gap: 7px; margin-bottom: 10px;
-    max-width: 880px; width: 100%; overflow-x: auto; scrollbar-width: none; padding: 2px 2px;
+    max-width: 1040px; width: 100%; overflow-x: auto; scrollbar-width: none; padding: 2px 2px;
     -webkit-mask-image: linear-gradient(90deg, #000 94%, transparent);
     mask-image: linear-gradient(90deg, #000 94%, transparent); }
   .tabs::-webkit-scrollbar { display: none; }
-  .tabsbar { position: relative; display: flex; justify-content: center; width: 100%; max-width: 880px; margin-bottom: 10px; }
+  .tabsbar { position: relative; display: flex; justify-content: center; width: 100%; max-width: 1040px; margin-bottom: 10px; }
   .tabsbar .tabs { margin-bottom: 0; }
   .tab-nav { position: absolute; top: 50%; transform: translateY(-50%); z-index: 4;
     width: 26px; height: 26px; border-radius: 50%; border: 1.3px solid var(--ink); background: var(--land);
@@ -167,7 +167,7 @@
 
   /* 返回导航条：返回键靠左、分区名紧随、进度靠右，细线分隔地图 */
   .crumb { display: none; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px 12px;
-    margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid #CBC2AF; max-width: 880px; width: 100%; }
+    margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid #CBC2AF; max-width: 1040px; width: 100%; }
   .crumb.show { display: flex; }
   .crumb-l { display: flex; align-items: center; gap: 10px; }
   .crumb-title { font-family: 'Songti SC','Noto Serif SC',serif; font-size: 14.5px; font-weight: 700; color: var(--ink); }
