@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>踏印 · 中国制县等级</title>
+<meta name="description" content="一地一印 —— 积木拼出真实轮廓的中国制县等级地图">
+<style>
+  :root {
+    --paper: #E7E0D0;
+    --land: #FBF8F1;
+    --ink: #1B2430;
+    --text-mid: #586572;
+    --copper: #A9702F;
+    --l1: #C89F63; --l2: #B88749; --l3: #A16829; --l4: #834F1D; --l5: #613813;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--paper);
+    font-family: -apple-system, 'PingFang SC', 'Noto Sans SC', sans-serif;
+    display: flex; flex-direction: column; align-items: center;
+    min-height: 100vh; padding: 26px 12px 48px; position: relative;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 2px; margin-top: 4px; }
+  .brand-seal {
+    width: 46px; height: 46px; border-radius: 11px;
+    border: 2px solid var(--copper); background: var(--copper);
+    color: #FFF6E8; font-family: 'Songti SC','Noto Serif SC',serif;
+    font-size: 24px; font-weight: 700; display: grid; place-items: center;
+    transform: rotate(-5deg); box-shadow: 0 2px 6px rgba(0,0,0,0.18);
+  }
+  h1 { font-family: 'Songti SC','Noto Serif SC',serif; font-size: 30px; color: var(--ink); letter-spacing: 0.06em; }
+  .tagline { font-size: 12.5px; color: var(--text-mid); font-weight: 600; margin: 6px 0 3px; }
+  .score { font-family: 'Songti SC',serif; font-size: 22px; font-weight: 700; color: var(--copper); margin-bottom: 12px; }
+  .score small { font-size: 12px; color: var(--text-mid); font-weight: 600; }
+
+  /* 浮在地图左上角的小盒子（参考 japanex），腾出头部空间 */
+  .legend { position: absolute; top: 6px; left: 6px; z-index: 6;
+    display: grid; grid-template-columns: auto auto; gap: 3px 12px;
+    background: rgba(251,248,241,0.9); border: 1.3px solid var(--ink); border-radius: 9px;
+    padding: 7px 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.12); backdrop-filter: blur(1px); }
+  .lg-row { display: flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; color: var(--ink); }
+  .lg-sw { width: 16px; height: 11px; border: 1.3px solid var(--ink); border-radius: 3px; flex-shrink: 0; }
+  .lg-sw.lv0 { background: var(--land); }
+  .lg-sw.lv1 { background: var(--l1); } .lg-sw.lv2 { background: var(--l2); }
+  .lg-sw.lv3 { background: var(--l3); } .lg-sw.lv4 { background: var(--l4); } .lg-sw.lv5 { background: var(--l5); }
+  .lg-lv { color: var(--text-mid); font-weight: 600; }
+
+  .stage { position: relative; max-width: 880px; width: 100%; }
+  svg { width: 100%; height: auto; max-height: 76vh; display: block; overflow: visible; }
+
+  .cellpoly {
+    fill: var(--land); stroke: var(--ink); stroke-width: 1.1;
+    stroke-linejoin: round; cursor: pointer; transition: filter 0.12s ease;
+  }
+  .cellpoly:hover { filter: brightness(0.93); }
+  .cellpoly.lv1 { fill: var(--l1); } .cellpoly.lv2 { fill: var(--l2); }
+  .cellpoly.lv3 { fill: var(--l3); } .cellpoly.lv4 { fill: var(--l4); } .cellpoly.lv5 { fill: var(--l5); }
+  .cellpoly.hl { stroke-width: 2; filter: brightness(0.9); }
+
+  .tip {
+    position: fixed; z-index: 70; pointer-events: none; display: none;
+    background: var(--ink); color: #FFF6E8; font-size: 12.5px; font-weight: 700;
+    padding: 5px 10px; border-radius: 7px; white-space: nowrap; box-shadow: 0 3px 10px rgba(0,0,0,0.28);
+  }
+  .tip.show { display: block; }
+  .tip small { font-weight: 600; opacity: 0.82; margin-left: 5px; }
+
+  .rlabel { font-weight: 700; fill: var(--ink); text-anchor: middle; dominant-baseline: central; pointer-events: none; }
+  .rlabel.lv3, .rlabel.lv4, .rlabel.lv5 { fill: #FFF6E8; }
+
+  .dmark { fill: var(--copper); opacity: 0.9; text-anchor: end; pointer-events: none; font-weight: 700; }
+  .dmark.lv3, .dmark.lv4, .dmark.lv5 { fill: #FFF6E8; }
+
+  .dfrac { fill: var(--copper); text-anchor: middle; dominant-baseline: central; pointer-events: none; font-weight: 700; letter-spacing: 0.02em; }
+  .dfrac.lv3, .dfrac.lv4, .dfrac.lv5 { fill: #FFF6E8; opacity: 0.92; }
+
+  .popup {
+    position: fixed; background: #FFFDF8; border: 1.3px solid var(--ink);
+    border-radius: 10px; box-shadow: 0 4px 14px rgba(0,0,0,0.22);
+    z-index: 60; min-width: 150px; overflow: hidden; display: none;
+  }
+  .popup.open { display: block; }
+  .pp-title { font-size: 13px; font-weight: 800; color: var(--ink); padding: 8px 12px; background: var(--paper); border-bottom: 1.3px solid var(--ink); }
+  button.pp-title { width: 100%; text-align: left; border-top: none; border-left: none; border-right: none; cursor: pointer; font-family: inherit; display: flex; align-items: center; justify-content: space-between; gap: 10px; background: #FBF3E4; transition: background 0.15s; }
+  button.pp-title:hover { background: #F1E3C6; }
+  .pp-sub { font-size: 11px; font-weight: 700; color: var(--copper); white-space: nowrap; background: #FFFDF8; border: 1.3px solid var(--copper); border-radius: 999px; padding: 2px 9px; transition: all 0.15s; }
+  button.pp-title:hover .pp-sub { background: var(--copper); color: #FFF6E8; }
+  .pp-item { display: flex; align-items: center; gap: 8px; width: 100%; padding: 7px 12px; border: none; background: transparent; font-size: 13px; font-weight: 700; color: var(--ink); cursor: pointer; text-align: left; }
+  .pp-item:hover { background: #EFE9DB; }
+  .pp-item .lg-sw { width: 18px; height: 12px; }
+  .pp-item.current { background: #E8E0CC; }
+
+  .actions { display: flex; gap: 10px; margin-top: 16px; }
+  .btn {
+    font-size: 13px; font-weight: 700; color: var(--ink);
+    background: var(--land); border: 1.3px solid var(--ink);
+    border-radius: 9px; padding: 8px 16px; cursor: pointer; transition: background 0.15s;
+  }
+  .btn:hover { background: #EFE9DB; }
+  .foot { margin-top: 14px; font-size: 12px; color: var(--text-mid); font-weight: 600; text-align: center; line-height: 1.6; }
+  .foot a { color: var(--copper); text-decoration: none; }
+
+  .tabs { display: flex; flex-wrap: nowrap; justify-content: flex-start; gap: 7px; margin-bottom: 10px;
+    max-width: 880px; width: 100%; overflow-x: auto; scrollbar-width: none; padding: 2px 2px;
+    -webkit-mask-image: linear-gradient(90deg, #000 94%, transparent);
+    mask-image: linear-gradient(90deg, #000 94%, transparent); }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tabsbar { position: relative; display: flex; justify-content: center; width: 100%; max-width: 880px; margin-bottom: 10px; }
+  .tabsbar .tabs { margin-bottom: 0; }
+  .tab-nav { position: absolute; top: 50%; transform: translateY(-50%); z-index: 4;
+    width: 26px; height: 26px; border-radius: 50%; border: 1.3px solid var(--ink); background: var(--land);
+    color: var(--ink); font-size: 15px; line-height: 1; display: none; place-items: center; cursor: pointer;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.18); padding: 0; }
+  .tab-nav.show { display: grid; }
+  .tab-nav:hover { background: #EFE9DB; }
+  .tab-nav.left { left: -2px; }
+  .tab-nav.right { right: -2px; }
+  .tab {
+    font-size: 12.5px; font-weight: 700; color: var(--ink);
+    background: var(--land); border: 1.3px solid var(--ink); flex: 0 0 auto;
+    border-radius: 999px; padding: 5px 12px; cursor: pointer; transition: background 0.15s;
+  }
+  .tab:hover { background: #EFE9DB; }
+  .tab.active { background: var(--copper); border-color: var(--copper); color: #FFF6E8; }
+  .tab small { font-weight: 600; opacity: 0.75; margin-left: 3px; }
+  .tdot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; vertical-align: 1px; }
+  .tab.active .tdot { display: none; }
+
+  /* 账号控件：右上角，不占中间 */
+  .userbar { position: absolute; top: 14px; right: 14px; z-index: 20; display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 700; color: var(--text-mid); }
+  .userbar .uname { color: var(--copper); }
+  .uicon { width: 25px; height: 25px; border-radius: 999px; border: 1.3px solid var(--ink); background: var(--land); color: var(--ink); font-size: 13px; display: grid; place-items: center; cursor: pointer; padding: 0; }
+  .uicon:hover { background: #EFE9DB; }
+  .uauth { border: 1.3px solid var(--ink); background: var(--land); color: var(--ink); border-radius: 999px; padding: 4px 13px; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+  .uauth:hover { background: #EFE9DB; }
+  .userbar .uname { color: var(--copper); }
+  .btn.small { font-size: 12px; padding: 5px 12px; border-radius: 8px; }
+
+  .modal-mask {
+    position: fixed; inset: 0; background: rgba(27,36,48,0.45);
+    display: none; align-items: center; justify-content: center; z-index: 50; padding: 16px;
+  }
+  .modal-mask.open { display: flex; }
+  .modal {
+    background: #FFFDF8; border: 1.3px solid var(--ink); border-radius: 14px;
+    box-shadow: 0 8px 28px rgba(0,0,0,0.3); width: 100%; max-width: 320px; overflow: hidden;
+  }
+  .md-title { font-family: 'Songti SC','Noto Serif SC',serif; font-size: 17px; font-weight: 800; color: var(--ink); padding: 12px 18px; background: var(--paper); border-bottom: 1.3px solid var(--ink); }
+  .md-body { padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 10px; }
+  .md-body input {
+    font: inherit; font-size: 14px; font-weight: 600; color: var(--ink);
+    background: var(--land); border: 1.3px solid var(--ink); border-radius: 9px; padding: 9px 12px; outline: none;
+  }
+  .md-body input:focus { border-color: var(--copper); }
+  .md-msg { font-size: 12px; font-weight: 700; color: #A0392E; min-height: 15px; }
+  .md-btns { display: flex; gap: 10px; }
+  .md-btns .btn { flex: 1; }
+  .btn.primary { background: var(--copper); color: #FFF6E8; border-color: var(--copper); }
+  .btn.primary:hover { background: #8F5C25; }
+  .md-hint { font-size: 11.5px; color: var(--text-mid); font-weight: 600; line-height: 1.5; }
+
+  /* 返回导航条：返回键靠左、分区名紧随、进度靠右，细线分隔地图 */
+  .crumb { display: none; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px 12px;
+    margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid #CBC2AF; max-width: 880px; width: 100%; }
+  .crumb.show { display: flex; }
+  .crumb-l { display: flex; align-items: center; gap: 10px; }
+  .crumb-title { font-family: 'Songti SC','Noto Serif SC',serif; font-size: 14.5px; font-weight: 700; color: var(--ink); }
+  .crumb .back {
+    cursor: pointer; border: 1.3px solid var(--ink); background: var(--land);
+    border-radius: 999px; padding: 5px 13px; font: inherit; font-size: 12.5px; font-weight: 700; color: var(--ink);
+  }
+  .crumb .back:hover { background: #EFE9DB; }
+  .crumb .cscore { color: var(--text-mid); font-size: 12px; font-weight: 700; }
+  .crumb .cscore b { color: var(--copper); }
+
+  /* iPad 及以下：地图占满宽度，纵向不超一屏 */
+  @media (max-width: 900px) {
+    svg { max-height: 72vh; }
+  }
+  /* iPhone：收紧留白与字号，地图近乎贴边、尽量大 */
+  @media (max-width: 640px) {
+    body { padding: 16px 6px 40px; }
+    .brand { gap: 9px; }
+    .brand-seal { width: 40px; height: 40px; font-size: 21px; }
+    h1 { font-size: 25px; }
+    .tagline { font-size: 12px; }
+    .score { font-size: 19px; }
+    .userbar { top: 10px; right: 8px; font-size: 11.5px; gap: 6px; }
+    .tab { font-size: 11.5px; padding: 4px 9px; }
+    .tabs { gap: 6px; margin-bottom: 12px; }
+    .legend { gap: 5px 11px; }
+    .lg-row { font-size: 11.5px; }
+    .lg-sw { width: 18px; height: 12px; }
+    svg { max-height: 66vh; }
+    .foot { font-size: 11px; }
+    .popup { min-width: 140px; }
+  }
+  /* 窄屏 iPhone mini/SE */
+  @media (max-width: 380px) {
+    h1 { font-size: 22px; }
+    .brand-seal { width: 36px; height: 36px; font-size: 19px; }
+    .tab { font-size: 11px; padding: 3.5px 8px; }
+  }
+</style>
+</head>
+<body>
+  <div class="brand">
+    <div class="brand-seal">印</div>
+    <h1>踏印</h1>
+  </div>
+  <p class="tagline">一地一印 —— 中国制县等级地图</p>
+  <div class="score"><span id="score">0</span><small> 分 · <span id="touched">0</span>/<span id="totaln">0</span> 地</small></div>
+
+  <div class="userbar" id="userbar"></div>
+
+  <div class="tabsbar" id="tabsbar">
+    <button class="tab-nav left" id="tab-left" aria-label="向左滚动">‹</button>
+    <div class="tabs" id="tabs"></div>
+    <button class="tab-nav right" id="tab-right" aria-label="向右滚动">›</button>
+  </div>
+
+  <div class="crumb" id="crumb"></div>
+
+  <div class="stage">
+    <svg id="map" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div class="legend" id="legend"></div>
+    <div class="popup" id="popup"></div>
+    <div class="tip" id="tip"></div>
+  </div>
+
+  <p class="foot">
+    <span id="prov-line"></span>　｜　积木拼出真实轮廓，<span id="storage-hint">数据存于本机浏览器</span><br>
+    点击地州市选择到访等级：住过 5 · 住宿 4 · 玩过 3 · 途经 2 · 落地 1 · 未踏 0<br>
+    带 ▦ 角标的可细分：点开后按标题栏胶囊进入，或双击直入；全国图点广东 / 港澳进大湾区，印记与闽粤桂共享、总分去重
+  </p>
+
+  <div class="modal-mask" id="auth-mask">
+    <div class="modal">
+      <div class="md-title">印主登记</div>
+      <div class="md-body">
+        <input id="auth-user" type="text" placeholder="用户名（中文 / 字母 / 数字）" maxlength="20" autocomplete="username">
+        <input id="auth-pass" type="password" placeholder="密码（至少 6 位）" maxlength="72" autocomplete="current-password">
+        <div class="md-msg" id="auth-msg"></div>
+        <div class="md-btns">
+          <button class="btn primary" id="auth-login">登录</button>
+          <button class="btn" id="auth-register">注册</button>
+        </div>
+        <div class="md-hint">不登录也能玩，记录存在本机浏览器；登录后记录保存到账号，换设备不丢。首次登录会自动合并本机已有的印记。</div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  // API 地址：本地开发同源留空；部署到 GitHub Pages 等其它域名时指向后端
+  window.TAYIN_API = /^(localhost|127\.0\.0\.1)?$/.test(location.hostname) ? '' : 'https://tayin.digitalvio.shop'
+</script>
+<script src="./tile-geo.js?v=5"></script>
+<script src="./drill-geo.js?v=5"></script>
+<script>
+const LEVELS = [
+  { v:5, label:'住过 · 居住过' }, { v:4, label:'住宿 · 过夜旅行' },
+  { v:3, label:'玩过 · 游玩到访' }, { v:2, label:'途经 · 路过没停留' },
+  { v:1, label:'落地 · 仅中转' }, { v:0, label:'未踏 · 还没去过' },
+]
+const CELL = 26
+const GROUPS = TILE_GEO.groups
+const DRILL = typeof DRILL_GEO !== 'undefined' ? DRILL_GEO : {}
+const ALL_REGIONS = GROUPS.flatMap(g => g.regions)
+// 大湾区与闽粤桂共享 code，总分按去重后的单位计
+const UNIQ_CODES = [...new Set(ALL_REGIONS.map(r => r.code))]
+const TOTAL = UNIQ_CODES.length
+const GROUP_KEY = 'tayin_group'
+let curGroup = GROUPS.find(g => g.id === localStorage.getItem(GROUP_KEY)) || GROUPS[0]
+
+// 分区着色：每个分组一个色相，组内用 5 级色阶（浅→深）表等级，未踏用淡染色 p
+const RAMPS = {
+  jjjj: { r: ['#eaa9a6','#df7a77','#d44944','#a72c27','#731e1b'], p: '#ebdcdb', h: '#D6534E' },
+  nmg: { r: ['#a5c2da','#75a1c6','#467eab','#315878','#223d53'], p: '#dbe1e7', h: '#5E8BB0' },
+  dss: { r: ['#a9bee4','#7b9ad5','#4b76c6','#2f5395','#213967'], p: '#dce0e9', h: '#4F79C7' },
+  jzsw: { r: ['#8ad3ca','#4bbbad','#358e82','#26635c','#1a453f'], p: '#d7e4e3', h: '#3FA79A' },
+  myg: { r: ['#9cd394','#68bc5c','#46933c','#31672a','#22461d'], p: '#dae4d8', h: '#5FA855' },
+  xeg: { r: ['#c6b0df','#a886cd','#8759bb','#633b8f','#442863'], p: '#e2dde8', h: '#8E6FB0' },
+  ly: { r: ['#e2b773','#d0912b','#9c6c20','#6e4c16','#4c340f'], p: '#e7dfd2', h: '#E0A13C' },
+  ygcy: { r: ['#e2b193','#d38659','#b15f2f','#7c4321','#552e16'], p: '#e8ded7', h: '#C56A34' },
+  qz: { r: ['#a3c3d9','#71a4c5','#4480a7','#305a75','#213e51'], p: '#dbe2e6', h: '#6C8A9E' },
+  sgn: { r: ['#d7b695','#c28f5b','#9a6939','#6c4a28','#4a321b'], p: '#e6dfd8', h: '#A9743F' },
+  xj: { r: ['#d7bb7a','#c09639','#90702b','#65501e','#453615'], p: '#e5dfd4', h: '#C9A24B' },
+  hain: { r: ['#e4a7c0','#d5779d','#c5467a','#922e57','#641f3b'], p: '#e9dbe1', h: '#D67BA0' },
+  twn: { r: ['#dca8cf','#c879b5','#b3499a','#7e346c','#57234a'], p: '#e7dbe4', h: '#9C5A8C' },
+  gba: { r: ['#9ac8d6','#63abc0','#3e8599','#2c5d6c','#1e404b'], p: '#d9e3e5', h: '#4FA0B8' },
+}
+const NEUTRAL = ['#bfbbb8','#9c9892','#77716b','#534f4b','#393634']   // 全国图图例用；亮度与各区各级一致，只示深浅
+// 把某分组的色阶写到 :root，图例与该组地图同时生效
+function setRamp(ramp) {
+  const root = document.documentElement.style
+  for (let i = 0; i < 5; i++) root.setProperty(`--l${i + 1}`, ramp[i])
+}
+
+// 全国省级总览图（首页）。每个省块记录：进入哪个分组 + 该省成员州市 code
+const CHINA = TILE_GEO.china
+const GROUP_BY_ID = Object.fromEntries(GROUPS.map(g => [g.id, g]))
+for (const r of CHINA.regions) {
+  // 一个省的成员 = 各分组里同省的州市（广东跨 闽粤桂 + 大湾区，需汇总；去重）
+  const seen = new Set()
+  r._members = []
+  for (const g of GROUPS) for (const x of g.regions)
+    if (x.prov === r.prov && !seen.has(x.code)) { seen.add(x.code); r._members.push(x.code) }
+}
+
+// 州市的「有效等级」= 自己盖的印 与 县级印记最深一档 取大
+function effLevel(code) {
+  let lv = levels[code] || 0
+  const d = DRILL[code]
+  if (d) for (const r of d.regions) { const v = levels[r.code] || 0; if (v > lv) lv = v }
+  return lv
+}
+
+// 省块聚合：颜色取全省「平均等级」（越多越深，反映整体探索）；进度 = 已踏/总数
+function provAvg(r) {
+  let sum = 0
+  for (const c of r._members) sum += effLevel(c)
+  return r._members.length ? sum / r._members.length : 0
+}
+function provProgress(r) {
+  let touched = 0
+  for (const c of r._members) if (effLevel(c) > 0) touched++
+  return { touched, total: r._members.length }
+}
+// 平均值（0–5）在色阶 [淡染, l1…l5] 上连续插值 → 省色
+function lerpHex(a, b, f) {
+  const pa = [1, 3, 5].map(k => parseInt(a.slice(k, k + 2), 16))
+  const pb = [1, 3, 5].map(k => parseInt(b.slice(k, k + 2), 16))
+  return '#' + pa.map((v, k) => Math.round(v + (pb[k] - v) * f).toString(16).padStart(2, '0')).join('')
+}
+// 去过的省颜色（未踏在 refresh 里留纯白）：任何去过至少 l1（稍微深），再按平均加深到 l5
+function provColor(r) {
+  const avg = provAvg(r)
+  const rm = RAMPS[r.group] || RAMPS.ygcy
+  const pos = Math.min(4, (avg / 5) * 4)   // 0..4 映射到 [l1…l5]
+  const i = Math.floor(pos)
+  return i >= 4 ? rm.r[4] : lerpHex(rm.r[i], rm.r[i + 1], pos - i)
+}
+
+const KEY = 'tayin_levels', TOKEN_KEY = 'tayin_token', USER_KEY = 'tayin_user'
+let levels = {}
+try { levels = JSON.parse(localStorage.getItem(KEY) || '{}') } catch {}
+
+// ---------- 账号 ----------
+let token = localStorage.getItem(TOKEN_KEY) || null
+let username = localStorage.getItem(USER_KEY) || null
+
+// 后端 API 地址。本地/同源部署留空；部署到 GitHub Pages 时改成后端地址，
+// 例如 'https://api.yourdomain.com'（必须 https，且后端已开 CORS）。
+const API_BASE = window.TAYIN_API || ''
+async function api(path, method = 'GET', body) {
+  const headers = { 'Content-Type': 'application/json' }
+  if (token) headers.Authorization = `Bearer ${token}`
+  const resp = await fetch(API_BASE + path, { method, headers, body: body ? JSON.stringify(body) : undefined })
+  const data = await resp.json().catch(() => ({}))
+  if (!resp.ok) throw Object.assign(new Error(data.error || `请求失败（${resp.status}）`), { status: resp.status })
+  return data
+}
+
+let pushTimer = null
+function save() {
+  localStorage.setItem(KEY, JSON.stringify(levels))
+  if (!token) return
+  clearTimeout(pushTimer)
+  pushTimer = setTimeout(() => {
+    api('/api/levels', 'PUT', { levels }).catch(e => {
+      if (e.status === 401) setAuth(null, null)  // 会话过期，退回本机模式
+    })
+  }, 400)
+}
+
+function setAuth(t, u) {
+  token = t; username = u
+  if (t) { localStorage.setItem(TOKEN_KEY, t); localStorage.setItem(USER_KEY, u) }
+  else { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(USER_KEY) }
+  renderUserbar()
+}
+
+function mergeLevels(a, b) {  // 取两边等级更深的一档
+  const out = { ...a }
+  for (const [k, v] of Object.entries(b)) if ((out[k] || 0) < v) out[k] = v
+  return out
+}
+
+function renderUserbar() {
+  const bar = document.getElementById('userbar')
+  const hint = document.getElementById('storage-hint')
+  if (username) {
+    bar.innerHTML = `<span class="uname">${username}</span><button class="uicon" id="logout" title="退出" aria-label="退出">⏻</button>`
+    hint.textContent = '已登录，印记同步到账号'
+    document.getElementById('logout').onclick = async () => {
+      api('/api/logout', 'POST').catch(() => {})
+      setAuth(null, null)
+    }
+  } else {
+    bar.innerHTML = `<button class="uauth" id="open-auth">登录 / 注册</button>`
+    hint.textContent = '数据存于本机浏览器 · 未登录'
+    document.getElementById('open-auth').onclick = () => {
+      document.getElementById('auth-msg').textContent = ''
+      document.getElementById('auth-mask').classList.add('open')
+      document.getElementById('auth-user').focus()
+    }
+  }
+}
+
+const svg = document.getElementById('map')
+const NS = 'http://www.w3.org/2000/svg'
+
+let shapes = {}, labels = {}, marks = {}, fracs = {}
+let view = { mode: 'group', parent: null }   // mode: 'group' ｜ 'drill'（钻进某州市的下级图）
+
+// 大区探索进度：已踏子单位数 / 子单位总数（无钻取数据返回 null）
+function drillProgress(code) {
+  const d = DRILL[code]
+  if (!d) return null
+  let touched = 0
+  for (const r of d.regions) if ((levels[r.code] || 0) > 0) touched++
+  return { touched, total: d.regions.length }
+}
+const FRAC_MIN_CELLS = 6   // 只有够大的块放得下名字下方的 a/b
+
+// ---------- 悬停高亮 + 全名提示（专治小块认不出）----------
+// 注意：不能在 mouseenter 里移动/缩放被悬停的节点——DOM 重排会重算悬停状态，
+// 造成 enter/leave 死循环（块闪烁、点击丢失）。高亮只用描边+亮度，识别靠 tooltip。
+const tip = document.getElementById('tip')
+function hoverOn(r, path) { path.classList.add('hl') }
+function hoverOff(path) { path.classList.remove('hl') }
+function tipHTML(r) {
+  if (view.mode === 'china') {
+    const p = provProgress(r)
+    return `${r.name}<small>${p.touched > 0 ? '已踏 ' + p.touched + '/' + p.total : '未踏 · 点击进入'}</small>`
+  }
+  const lv = view.mode === 'drill' ? (levels[r.code] || 0) : effLevel(r.code)
+  const lab = (LEVELS.find(l => l.v === lv) || {}).label?.split(' · ')[0] || '未踏'
+  const extra = DRILL[r.code] ? ' · 可细分' : ''
+  return `${r.name}<small>${lab}${extra}</small>`
+}
+function showTip(r, e) { tip.innerHTML = tipHTML(r); tip.classList.add('show'); moveTip(e) }
+function hideTip() { tip.classList.remove('show') }
+function moveTip(e) {
+  tip.style.left = Math.min(e.clientX + 14, innerWidth - tip.offsetWidth - 8) + 'px'
+  tip.style.top = Math.max(8, e.clientY - tip.offsetHeight - 12) + 'px'
+}
+
+function buildMap(grid) {
+  hideTip()   // 换图时旧块已移除，mouseleave 不会触发，这里兜底收掉提示
+  const [bx0, by0, bx1, by1] = grid.bbox
+  svg.setAttribute('viewBox', `-2 -2 ${(bx1 - bx0) * CELL + 4} ${(by1 - by0) * CELL + 4}`)
+  svg.innerHTML = ''
+  shapes = {}; labels = {}; marks = {}; fracs = {}
+  const scalePath = d => d.replace(/([\d.]+),([\d.]+)/g, (_, x, y) =>
+    `${((+x) - bx0) * CELL},${((+y) - by0) * CELL}`)
+  for (const r of grid.regions) {
+    const path = document.createElementNS(NS, 'path')
+    path.setAttribute('d', scalePath(r.d))
+    path.setAttribute('class', 'cellpoly')
+    path.setAttribute('fill-rule', 'evenodd')
+    path.addEventListener('click', e => {
+      if (r.group) { enterGroup(r); return }   // 全国图：点省缩放进分组
+      openPopup(e, r)   // 地级市 / 香港统一弹菜单，进细分走标题栏胶囊或双击
+    })
+    path.addEventListener('mouseenter', e => { hoverOn(r, path); showTip(r, e) })
+    path.addEventListener('mousemove', moveTip)
+    path.addEventListener('mouseleave', () => { hoverOff(path); hideTip() })
+    svg.appendChild(path)
+    shapes[r.code] = path
+
+    // 够大的可钻块 / 省块：名字上移，给下方 a/b 让位
+    const bigDrill = (DRILL[r.code] || r.group) && r.n >= FRAC_MIN_CELLS
+    const t = document.createElementNS(NS, 'text')
+    t.setAttribute('x', (r.lx - bx0) * CELL)
+    t.setAttribute('y', (r.ly - by0) * CELL - (bigDrill ? 6 : 0))
+    t.setAttribute('font-size', r.n <= 2 ? 9.5 : r.name.length >= 4 ? 10 : r.name.length >= 3 ? 11 : 13)
+    t.setAttribute('class', 'rlabel')
+    t.textContent = r.name
+    svg.appendChild(t)
+    labels[r.code] = t
+
+    if (bigDrill) {
+      const f = document.createElementNS(NS, 'text')
+      f.setAttribute('x', (r.lx - bx0) * CELL)
+      f.setAttribute('y', (r.ly - by0) * CELL + 8)
+      f.setAttribute('font-size', 9)
+      f.setAttribute('class', 'dfrac')
+      svg.appendChild(f)
+      fracs[r.code] = f
+    }
+
+    if (DRILL[r.code]) {
+      // 可钻取角标：放在标签所在格的右上角（必属本单位，不会飘到邻块上）
+      const m = document.createElementNS(NS, 'text')
+      m.setAttribute('x', (Math.floor(r.lx) + 1 - bx0) * CELL - 2.5)
+      m.setAttribute('y', (Math.floor(r.ly) - by0) * CELL + 8)
+      m.setAttribute('font-size', 7.5)
+      m.setAttribute('class', 'dmark')
+      m.textContent = '▦'
+      svg.appendChild(m)
+      marks[r.code] = m
+      path.addEventListener('dblclick', () => { popup.classList.remove('open'); enterDrill(r) })
+    }
+  }
+}
+
+function renderChina() {
+  view = { mode: 'china', parent: null }
+  buildMap(CHINA)
+  // 全国图「一区一色」，6 级色阶图例会与彩色地图对不上 → 隐藏；配色规则见页脚
+  document.getElementById('legend').style.display = 'none'
+  document.getElementById('prov-line').textContent = '颜色 = 分区 · 深浅 = 等级 · 点省进入'
+}
+
+function renderGroup() {
+  view = { mode: 'group', parent: null }
+  setRamp((RAMPS[curGroup.id] || RAMPS.ygcy).r)   // 整组一个色相，深浅表等级
+  buildMap(curGroup)
+  document.getElementById('legend').style.display = ''   // 分组图图例与地图同色，显示
+  document.getElementById('prov-line').textContent =
+    Object.entries(curGroup.provs).map(([p, n]) => `${p} ${n}`).join(' · ')
+}
+
+function renderDrill(parent) {
+  view = { mode: 'drill', parent }
+  setRamp((RAMPS[curGroup.id] || RAMPS.ygcy).r)   // 县级沿用所属分区色相
+  buildMap(DRILL[parent.code])
+  document.getElementById('legend').style.display = ''
+}
+
+function updateCrumb() {
+  const crumb = document.getElementById('crumb')
+  if (view.mode === 'china') { crumb.classList.remove('show'); return }
+  if (view.mode === 'group') {
+    // 分组图：返回全国
+    let total = 0, touched = 0
+    for (const r of curGroup.regions) { const lv = effLevel(r.code); total += lv; if (lv > 0) touched++ }
+    crumb.innerHTML =
+      `<div class="crumb-l"><button class="back" id="crumb-back">‹ 返回全国</button><span class="crumb-title">${curGroup.name}</span></div>` +
+      `<span class="cscore"><b>${total}</b> 分 · 已踏 <b>${touched}</b>/${curGroup.regions.length}</span>`
+    crumb.classList.add('show')
+    document.getElementById('crumb-back').onclick = exitToChina
+    return
+  }
+  // 县级图：返回所属分组
+  const g = DRILL[view.parent.code], u = g.unit || '县'
+  let total = 0, touched = 0
+  for (const r of g.regions) { const lv = levels[r.code] || 0; total += lv; if (lv > 0) touched++ }
+  crumb.innerHTML =
+    `<div class="crumb-l"><button class="back" id="crumb-back">‹ 返回${curGroup.name}</button><span class="crumb-title">${view.parent.name} · 各${u}</span></div>` +
+    `<span class="cscore"><b>${total}</b> 分 · 已踏 <b>${touched}</b>/${g.regions.length} ${u}</span>`
+  crumb.classList.add('show')
+  document.getElementById('crumb-back').onclick = exitDrill
+}
+
+function renderTabs() {
+  let totTouched = 0
+  for (const code of UNIQ_CODES) if (effLevel(code) > 0) totTouched++
+  const home = `<button class="tab ${view.mode === 'china' ? 'active' : ''}" data-g="__china">全国<small>${totTouched}/${TOTAL}</small></button>`
+  document.getElementById('tabs').innerHTML = home + GROUPS.map(g => {
+    const touched = g.regions.reduce((s, r) => s + (effLevel(r.code) > 0 ? 1 : 0), 0)
+    const active = view.mode !== 'china' && g.id === curGroup.id
+    const hue = (RAMPS[g.id] || RAMPS.ygcy).h
+    const style = active ? ` style="background:${hue};border-color:${hue};color:#FFF6E8"` : ''
+    const dot = `<span class="tdot" style="background:${hue}"></span>`
+    return `<button class="tab ${active ? 'active' : ''}" data-g="${g.id}"${style}>${dot}${g.name}<small>${touched}/${g.regions.length}</small></button>`
+  }).join('')
+  // 单行横滑：把当前分区滚到可见（居中）
+  const bar = document.getElementById('tabs')
+  const act = bar.querySelector('.tab.active')
+  if (act) {
+    const cr = bar.getBoundingClientRect(), ar = act.getBoundingClientRect()
+    bar.scrollLeft += (ar.left - cr.left) - (cr.width - ar.width) / 2
+  }
+  updateTabNav()
+}
+
+// 页签左右滑动按钮 + 边缘渐隐：按滚动位置显隐
+const tabsEl = document.getElementById('tabs')
+const navL = document.getElementById('tab-left')
+const navR = document.getElementById('tab-right')
+function updateTabNav() {
+  const max = tabsEl.scrollWidth - tabsEl.clientWidth
+  const x = tabsEl.scrollLeft
+  const atStart = x <= 2, atEnd = x >= max - 2, has = max > 2
+  navL.classList.toggle('show', has && !atStart)
+  navR.classList.toggle('show', has && !atEnd)
+  const m = !has ? 'none'
+    : atStart ? 'linear-gradient(90deg,#000 93%,transparent)'
+    : atEnd ? 'linear-gradient(90deg,transparent,#000 7%)'
+    : 'linear-gradient(90deg,transparent,#000 7%,#000 93%,transparent)'
+  tabsEl.style.webkitMaskImage = m; tabsEl.style.maskImage = m
+}
+tabsEl.addEventListener('scroll', updateTabNav, { passive: true })
+window.addEventListener('resize', updateTabNav)
+navL.onclick = () => tabsEl.scrollBy({ left: -240, behavior: 'smooth' })
+navR.onclick = () => tabsEl.scrollBy({ left: 240, behavior: 'smooth' })
+// 桌面鼠标滚轮 → 横向滚动页签条
+document.getElementById('tabs').addEventListener('wheel', e => {
+  const el = e.currentTarget
+  if (el.scrollWidth > el.clientWidth + 2) { el.scrollLeft += e.deltaY || e.deltaX; e.preventDefault() }
+}, { passive: false })
+document.getElementById('tabs').addEventListener('click', e => {
+  const btn = e.target.closest('.tab'); if (!btn) return
+  popup.classList.remove('open')
+  if (btn.dataset.g === '__china') { renderChina(); refresh(); return }
+  curGroup = GROUPS.find(g => g.id === btn.dataset.g)
+  localStorage.setItem(GROUP_KEY, curGroup.id)
+  renderGroup(); refresh()
+})
+
+function refresh() {
+  let total = 0, touched = 0
+  for (const code of UNIQ_CODES) {
+    const lv = effLevel(code)
+    total += lv; if (lv > 0) touched++
+  }
+  const regions = view.mode === 'china' ? CHINA.regions
+    : view.mode === 'drill' ? DRILL[view.parent.code].regions : curGroup.regions
+  for (const r of regions) {
+    // 全国图用「平均等级」连续上色（round 后仅供标签明暗对比）；分组/县级用该块自身等级
+    const lv = view.mode === 'china' ? Math.round(provAvg(r))
+      : view.mode === 'drill' ? (levels[r.code] || 0) : effLevel(r.code)
+    shapes[r.code].setAttribute('class', `cellpoly lv${lv}`)
+    // 全国图：未踏留纯白（清 inline，回落 CSS 的 --land），去过按平均色
+    if (view.mode === 'china') shapes[r.code].style.fill = provProgress(r).touched > 0 ? provColor(r) : ''
+    labels[r.code].setAttribute('class', `rlabel lv${lv}`)
+    if (marks[r.code]) marks[r.code].setAttribute('class', `dmark lv${lv}`)
+    if (fracs[r.code]) {
+      const p = view.mode === 'china' ? provProgress(r) : drillProgress(r.code)
+      // 仅踏过 ≥1 个子单位才显示 a/b，否则留白只见名字
+      fracs[r.code].textContent = p && p.touched > 0 ? `${p.touched}/${p.total}` : ''
+      fracs[r.code].setAttribute('class', `dfrac lv${lv}`)
+    }
+  }
+  document.getElementById('score').textContent = total
+  document.getElementById('touched').textContent = touched
+  document.getElementById('totaln').textContent = TOTAL
+  renderTabs()
+  updateCrumb()
+}
+
+document.getElementById('legend').innerHTML = LEVELS.map(l =>
+  `<div class="lg-row"><span class="lg-sw lv${l.v}"></span>${l.label.split(' · ')[0]}<span class="lg-lv">${l.v}</span></div>`
+).join('')
+
+const popup = document.getElementById('popup')
+let popupRegion = null
+function openPopup(e, r) {
+  popupRegion = r
+  const cur = levels[r.code] || 0
+  const d = DRILL[r.code]
+  let title
+  if (d) {
+    const u = d.unit || '县', p = drillProgress(r.code)
+    const prog = p.touched > 0 ? `${p.touched}/${p.total} ${u}` : `${p.total} ${u}`
+    title = `<button class="pp-title pp-enter">${r.name}<span class="pp-sub">${prog} ›</span></button>`
+  } else {
+    title = `<div class="pp-title">${r.name}</div>`
+  }
+  popup.innerHTML = title +
+    LEVELS.map(l => `<button class="pp-item ${l.v===cur?'current':''}" data-v="${l.v}"><span class="lg-sw lv${l.v}"></span>${l.label}</button>`).join('')
+  popup.classList.add('open')
+  let px = e.clientX + 10, py = e.clientY - 10
+  px = Math.min(px, innerWidth - popup.offsetWidth - 8)
+  py = Math.max(8, Math.min(py, innerHeight - popup.offsetHeight - 8))
+  popup.style.left = px + 'px'; popup.style.top = py + 'px'
+}
+popup.addEventListener('click', e => {
+  if (!popupRegion) return
+  if (e.target.closest('.pp-enter')) {
+    popup.classList.remove('open')
+    enterDrill(popupRegion)
+    return
+  }
+  const btn = e.target.closest('.pp-item'); if (!btn) return
+  const v = +btn.dataset.v
+  if (v === 0) delete levels[popupRegion.code]; else levels[popupRegion.code] = v
+  save(); refresh(); popup.classList.remove('open')
+})
+document.addEventListener('click', e => {
+  if (!e.target.closest('.popup') && !e.target.closest('.cellpoly')) popup.classList.remove('open')
+})
+// ---------- 钻取：语义缩放进出 ----------
+let animating = false
+const ZOOM_MS = 200
+
+// 某单位色块中心在 svg 元素内的像素坐标（transform-origin 用）
+function blockOriginPx(code) {
+  const b = shapes[code].getBBox()
+  const vb = svg.viewBox.baseVal
+  const k = svg.clientWidth / vb.width
+  return `${(b.x + b.width / 2 - vb.x) * k}px ${(b.y + b.height / 2 - vb.y) * k}px`
+}
+
+function animOut(transform, origin, cb) {
+  animating = true
+  svg.style.transformOrigin = origin
+  svg.style.transition = `transform ${ZOOM_MS}ms ease-in, opacity ${ZOOM_MS}ms ease-in`
+  svg.style.transform = transform
+  svg.style.opacity = '0'
+  setTimeout(cb, ZOOM_MS + 10)
+}
+function animIn(startTransform, origin) {
+  svg.style.transition = 'none'
+  svg.style.transformOrigin = origin
+  svg.style.transform = startTransform
+  svg.style.opacity = '0'
+  svg.getBoundingClientRect()  // 强制 reflow，让起始态生效
+  svg.style.transition = `transform ${ZOOM_MS}ms ease-out, opacity ${ZOOM_MS}ms ease-out`
+  svg.style.transform = 'scale(1)'
+  svg.style.opacity = '1'
+  setTimeout(() => { svg.style.cssText = ''; animating = false }, ZOOM_MS + 40)
+}
+
+function enterDrill(parent) {
+  if (animating || !DRILL[parent.code]) return
+  const origin = blockOriginPx(parent.code)
+  animOut('scale(2.3)', origin, () => {   // 镜头推进：母图放大淡出
+    renderDrill(parent); refresh()
+    animIn('scale(0.45)', '50% 50%')      // 子图从小长到 1，接住推进感
+  })
+}
+function exitDrill() {
+  if (view.mode !== 'drill' || animating) return
+  const parent = view.parent
+  animOut('scale(0.45)', '50% 50%', () => {  // 镜头拉远：子图缩小淡出
+    renderGroup(); refresh()
+    animIn('scale(2.3)', blockOriginPx(parent.code))  // 母图从母块处收回原位
+  })
+}
+// 全国图 → 分组：点省缩放进入
+function enterGroup(province) {
+  if (animating) return
+  curGroup = GROUP_BY_ID[province.group]
+  localStorage.setItem(GROUP_KEY, curGroup.id)
+  const origin = blockOriginPx(province.code)
+  animOut('scale(2.3)', origin, () => {
+    renderGroup(); refresh()
+    animIn('scale(0.45)', '50% 50%')
+  })
+}
+// 分组 → 全国：拉远回总览
+function exitToChina() {
+  if (view.mode !== 'group' || animating) return
+  animOut('scale(0.45)', '50% 50%', () => {
+    renderChina(); refresh()
+    animIn('scale(2.3)', '50% 50%')
+  })
+}
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return
+  if (view.mode === 'drill') exitDrill()
+  else if (view.mode === 'group') exitToChina()
+})
+
+// ---------- 登录弹窗 ----------
+const authMask = document.getElementById('auth-mask')
+authMask.addEventListener('click', e => { if (e.target === authMask) authMask.classList.remove('open') })
+
+async function submitAuth(mode) {
+  const user = document.getElementById('auth-user').value.trim()
+  const pass = document.getElementById('auth-pass').value
+  const msg = document.getElementById('auth-msg')
+  msg.textContent = ''
+  try {
+    const data = await api(`/api/${mode}`, 'POST', { username: user, password: pass })
+    setAuth(data.token, data.username)
+    // 首次登录：本机印记与账号印记按更深一档合并，再回写账号
+    levels = mergeLevels(data.levels || {}, levels)
+    save(); refresh()
+    authMask.classList.remove('open')
+    document.getElementById('auth-pass').value = ''
+  } catch (e) {
+    msg.textContent = e.message
+  }
+}
+document.getElementById('auth-login').onclick = () => submitAuth('login')
+document.getElementById('auth-register').onclick = () => submitAuth('register')
+document.getElementById('auth-pass').addEventListener('keydown', e => { if (e.key === 'Enter') submitAuth('login') })
+
+// 已有会话：拉取账号印记
+async function restoreSession() {
+  if (!token) return
+  try {
+    const data = await api('/api/me')
+    username = data.username
+    levels = data.levels || {}
+    localStorage.setItem(KEY, JSON.stringify(levels))
+    renderUserbar(); refresh()
+  } catch (e) {
+    if (e.status === 401) { setAuth(null, null); refresh() }
+  }
+}
+
+renderUserbar()
+renderChina()
+refresh()
+restoreSession()
+</script>
+</body>
+</html>
