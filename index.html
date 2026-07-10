@@ -46,8 +46,13 @@
   .lg-sw.lv3 { background: var(--l3); } .lg-sw.lv4 { background: var(--l4); } .lg-sw.lv5 { background: var(--l5); }
   .lg-lv { color: var(--text-mid); font-weight: 600; }
 
-  .stage { position: relative; max-width: 880px; width: 100%; }
-  svg { width: 100%; height: auto; max-height: 76vh; display: block; overflow: visible; }
+  .stage { position: relative; max-width: 880px; width: 100%; overflow: hidden; }
+  svg { width: 100%; height: auto; max-height: 76vh; display: block; overflow: hidden; touch-action: pan-y; }
+  .zoombar { position: absolute; right: 8px; bottom: 8px; z-index: 8; display: flex; flex-direction: column; gap: 6px; }
+  .zoombar button { width: 34px; height: 34px; border-radius: 999px; border: 1.3px solid var(--ink);
+    background: rgba(251,248,241,0.92); color: var(--ink); font-size: 20px; font-weight: 700; line-height: 1;
+    display: grid; place-items: center; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.15); padding: 0; }
+  .zoombar button:hover { background: #EFE9DB; }
 
   .cellpoly {
     fill: var(--land); stroke: var(--ink); stroke-width: 1.1;
@@ -225,6 +230,10 @@
   <div class="stage">
     <svg id="map" xmlns="http://www.w3.org/2000/svg"></svg>
     <div class="legend" id="legend"></div>
+    <div class="zoombar">
+      <button id="zoom-in" aria-label="放大">＋</button>
+      <button id="zoom-out" aria-label="缩小">－</button>
+    </div>
     <div class="popup" id="popup"></div>
     <div class="tip" id="tip"></div>
   </div>
@@ -447,11 +456,66 @@ function moveTip(e) {
   tip.style.top = Math.max(8, e.clientY - tip.offsetHeight - 12) + 'px'
 }
 
+// ---------- 地图缩放 / 平移（手机双指、＋/－ 按钮）----------
+let vp = null                 // 变换层（<g>），缩放平移作用于它
+let zoom = { s: 1, x: 0, y: 0 }
+function applyZoom() {
+  if (vp) vp.setAttribute('transform', `translate(${zoom.x} ${zoom.y}) scale(${zoom.s})`)
+  svg.style.touchAction = zoom.s > 1.01 ? 'none' : 'pan-y'   // 放大后单指平移地图，否则让页面滚
+  const out = document.getElementById('zoom-out'); if (out) out.style.opacity = zoom.s > 1.01 ? '1' : '.4'
+}
+function resetZoom() { zoom = { s: 1, x: 0, y: 0 }; applyZoom() }
+function clampZoom() {
+  const vb = svg.viewBox.baseVal
+  zoom.x = Math.min(vb.x * (1 - zoom.s), Math.max((vb.x + vb.width) * (1 - zoom.s), zoom.x))
+  zoom.y = Math.min(vb.y * (1 - zoom.s), Math.max((vb.y + vb.height) * (1 - zoom.s), zoom.y))
+}
+function toVB(px, py) {
+  const sr = svg.getBoundingClientRect(), vb = svg.viewBox.baseVal
+  return { x: vb.x + (px - sr.left) / sr.width * vb.width, y: vb.y + (py - sr.top) / sr.height * vb.height }
+}
+function zoomTo(ns, v) {
+  ns = Math.max(1, Math.min(6, ns))
+  const cx = (v.x - zoom.x) / zoom.s, cy = (v.y - zoom.y) / zoom.s
+  zoom.s = ns; zoom.x = v.x - cx * ns; zoom.y = v.y - cy * ns
+  clampZoom(); applyZoom()
+}
+function panBy(dpx, dpy) {
+  const sr = svg.getBoundingClientRect(), vb = svg.viewBox.baseVal
+  zoom.x += dpx / sr.width * vb.width; zoom.y += dpy / sr.height * vb.height
+  clampZoom(); applyZoom()
+}
+function zoomStep(f) { const vb = svg.viewBox.baseVal; zoomTo(zoom.s * f, { x: vb.x + vb.width / 2, y: vb.y + vb.height / 2 }) }
+const _dist = (a, b) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY)
+const _mid = (a, b) => ({ x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 })
+let tState = null, tMoved = false, gestureBlockClick = false
+svg.addEventListener('touchstart', e => {
+  if (e.touches.length === 2) tState = { pinch: true, d: _dist(e.touches[0], e.touches[1]) }
+  else if (e.touches.length === 1) tState = { pinch: false, x: e.touches[0].clientX, y: e.touches[0].clientY }
+  tMoved = false
+}, { passive: false })
+svg.addEventListener('touchmove', e => {
+  if (!tState) return
+  if (tState.pinch && e.touches.length === 2) {
+    const d = _dist(e.touches[0], e.touches[1]), m = _mid(e.touches[0], e.touches[1])
+    zoomTo(zoom.s * d / tState.d, toVB(m.x, m.y)); tState.d = d; tMoved = true; e.preventDefault()
+  } else if (!tState.pinch && e.touches.length === 1 && zoom.s > 1.01) {
+    const t = e.touches[0]
+    panBy(t.clientX - tState.x, t.clientY - tState.y); tState.x = t.clientX; tState.y = t.clientY
+    tMoved = true; e.preventDefault()
+  }
+}, { passive: false })
+svg.addEventListener('touchend', () => { if (tMoved) { gestureBlockClick = true; setTimeout(() => gestureBlockClick = false, 400) } tState = null })
+svg.addEventListener('click', e => { if (gestureBlockClick) { e.stopPropagation(); e.preventDefault() } }, true)
+document.getElementById('zoom-in').onclick = () => zoomStep(1.5)
+document.getElementById('zoom-out').onclick = () => zoomStep(1 / 1.5)
+
 function buildMap(grid) {
   hideTip()   // 换图时旧块已移除，mouseleave 不会触发，这里兜底收掉提示
   const [bx0, by0, bx1, by1] = grid.bbox
   svg.setAttribute('viewBox', `-2 -2 ${(bx1 - bx0) * CELL + 4} ${(by1 - by0) * CELL + 4}`)
   svg.innerHTML = ''
+  vp = document.createElementNS(NS, 'g'); svg.appendChild(vp); resetZoom()
   shapes = {}; labels = {}; marks = {}; fracs = {}
   const scalePath = d => d.replace(/([\d.]+),([\d.]+)/g, (_, x, y) =>
     `${((+x) - bx0) * CELL},${((+y) - by0) * CELL}`)
@@ -467,7 +531,7 @@ function buildMap(grid) {
     path.addEventListener('mouseenter', e => { hoverOn(r, path); showTip(r, e) })
     path.addEventListener('mousemove', moveTip)
     path.addEventListener('mouseleave', () => { hoverOff(path); hideTip() })
-    svg.appendChild(path)
+    vp.appendChild(path)
     shapes[r.code] = path
 
     // 够大的可钻块 / 省块：名字上移，给下方 a/b 让位
@@ -478,7 +542,7 @@ function buildMap(grid) {
     t.setAttribute('font-size', r.n <= 2 ? 9.5 : r.name.length >= 4 ? 10 : r.name.length >= 3 ? 11 : 13)
     t.setAttribute('class', 'rlabel')
     t.textContent = r.name
-    svg.appendChild(t)
+    vp.appendChild(t)
     labels[r.code] = t
 
     if (bigDrill) {
@@ -487,7 +551,7 @@ function buildMap(grid) {
       f.setAttribute('y', (r.ly - by0) * CELL + 8)
       f.setAttribute('font-size', 9)
       f.setAttribute('class', 'dfrac')
-      svg.appendChild(f)
+      vp.appendChild(f)
       fracs[r.code] = f
     }
 
@@ -499,7 +563,7 @@ function buildMap(grid) {
       m.setAttribute('font-size', 7.5)
       m.setAttribute('class', 'dmark')
       m.textContent = '▦'
-      svg.appendChild(m)
+      vp.appendChild(m)
       marks[r.code] = m
       path.addEventListener('dblclick', () => { popup.classList.remove('open'); enterDrill(r) })
     }
@@ -687,12 +751,10 @@ document.addEventListener('click', e => {
 let animating = false
 const ZOOM_MS = 200
 
-// 某单位色块中心在 svg 元素内的像素坐标（transform-origin 用）
+// 某单位色块中心在 svg 元素内的像素坐标（transform-origin 用；用 BCR 以兼容缩放/平移）
 function blockOriginPx(code) {
-  const b = shapes[code].getBBox()
-  const vb = svg.viewBox.baseVal
-  const k = svg.clientWidth / vb.width
-  return `${(b.x + b.width / 2 - vb.x) * k}px ${(b.y + b.height / 2 - vb.y) * k}px`
+  const br = shapes[code].getBoundingClientRect(), sr = svg.getBoundingClientRect()
+  return `${br.left + br.width / 2 - sr.left}px ${br.top + br.height / 2 - sr.top}px`
 }
 
 function animOut(transform, origin, cb) {
