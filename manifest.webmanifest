@@ -1,0 +1,15 @@
+{
+  "name": "踏印 · 中国打卡地图",
+  "short_name": "踏印",
+  "description": "一地一印 —— 积木拼出真实轮廓的中国打卡地图，记录你到访每座城市的深浅",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#E7E0D0",
+  "theme_color": "#E7E0D0",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
