@@ -1070,8 +1070,10 @@ async function renderShareCanvas() {
   const mapH = mapW * vb.height / vb.width
   const legVisible = getComputedStyle(document.getElementById('legend')).display !== 'none'
   const legendH = legVisible ? 30 : 0
+  const qr = await qrImage()
+  const footerH = qr ? 78 : 30
   const W = Math.max(mapW, 380) + PAD * 2
-  const H = PAD + titleH + legendH + mapH + PAD + 8
+  const H = PAD + titleH + legendH + mapH + 4 + footerH
   const cv = document.createElement('canvas')
   cv.width = W * S; cv.height = H * S
   const ctx = cv.getContext('2d'); ctx.scale(S, S)
@@ -1085,12 +1087,39 @@ async function renderShareCanvas() {
   let y = PAD + titleH
   if (legVisible) y += drawLegend(ctx, PAD, y, W - PAD * 2)
   ctx.drawImage(mapImg, (W - mapW) / 2, y, mapW, mapH)
-  ctx.fillStyle = 'rgba(88,101,114,.8)'; ctx.font = "600 12px 'PingFang SC',sans-serif"
-  ctx.textAlign = 'right'; ctx.fillText('tayin.digitalvio.shop', W - PAD, H - 10)
+  if (qr) {
+    // 右下角：白底小卡 + 二维码，左侧配站点与扫码提示
+    const qs = 58, qx = W - PAD - qs - 5, qy = H - footerH + (footerH - qs) / 2 - 3
+    ctx.fillStyle = '#FFFDF8'
+    if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(qx - 6, qy - 6, qs + 12, qs + 12, 7); ctx.fill() }
+    else ctx.fillRect(qx - 6, qy - 6, qs + 12, qs + 12)
+    ctx.strokeStyle = 'rgba(27,36,48,.25)'; ctx.lineWidth = 1
+    if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(qx - 6, qy - 6, qs + 12, qs + 12, 7); ctx.stroke() }
+    ctx.drawImage(qr, qx, qy, qs, qs)
+    ctx.textAlign = 'right'
+    ctx.fillStyle = '#1B2430'; ctx.font = "700 13px 'PingFang SC','Microsoft YaHei',sans-serif"
+    ctx.fillText('tayin.digitalvio.shop', qx - 16, qy + qs / 2 - 4)
+    ctx.fillStyle = 'rgba(88,101,114,.85)'; ctx.font = "600 11.5px 'PingFang SC',sans-serif"
+    ctx.fillText('扫码 · 记录你的中国足迹', qx - 16, qy + qs / 2 + 15)
+  } else {
+    ctx.fillStyle = 'rgba(88,101,114,.8)'; ctx.font = "600 12px 'PingFang SC',sans-serif"
+    ctx.textAlign = 'right'; ctx.fillText('tayin.digitalvio.shop', W - PAD, H - 10)
+  }
   return cv
 }
 function canvasBlob(cv) { return new Promise(res => cv.toBlob(res, 'image/png')) }
 const IS_WECHAT = /MicroMessenger/i.test(navigator.userAgent)
+// 站点二维码（离线生成内嵌，URL 固定不变），画进分享卡右下角
+const QR_B64 = 'iVBORw0KGgoAAAANSUhEUgAAAQgAAAEICAIAAAAslP2oAAAFFElEQVR4nO3dQW4ctxZAUTnIMnr6F5D9LyILyLT30Rn/5BIJAxJkWefMbBjVlloXbNQTiz8+n88X8P9++cufAWFAs2JAEAYEYUAQBgRhQBAGBGFAEAYEYUAQBgRhQBAGBGFA+PVr0ut/v309wfuP35d8XbPXmbXqdVe9L6ded7fZr8uKAUEYEIQBQRgQhAFBGBCEASvmGCO77/evuo+++9+Pvg+n5iSz/5/dr7vbqq/LigFBGBCEAUEYEIQBQRgQhAE75xi37RPYfZ1T+ytG1zk1N3j6z8OIFQOCMCAIA4IwIAgDgjAgCANOzDGebtV991VzidnrrNp/8n7InGQVKwYEYUAQBgRhQBAGBGFAEAaEbzfH2H2f/tRznJ6yz+EprBgQhAFBGBCEAUEYEIQBQRhwYo5x233xU/OK3fONU/OTp/88jFgxIAgDgjAgCAOCMCAIA4IwYOcc47b75U9/btJtc4/3ovM9nsKKAUEYEIQBQRgQhAFBGBCEAeHH5/Opv+ewU/s6Rt6XzXl2s2JAEAYEYUAQBgRhQBAGBGHAiv0Yq+6vn/r3I7NzgN339Z/ynKhZu9+vVe+LFQOCMCAIA4IwIAgDgjAgCAN27sd4yjnTu+9/r5qHnJqrnHofX5fNN6wYEIQBQRgQhAFBGBCEAUEYcGI/xu7r777fv+rr3b2/4tT/8735fTm1/8SKAUEYEIQBQRgQhAFBGBCEAT/jOd+r7n+fOj9793VGnnKe93vz88RGrBgQhAFBGBCEAUEYEIQBQRhw4rlSp36/f+RnPZfj1HOZXpe97ojnSsECPkpBEAYEYUAQBgRhQBAG7NyPcdv5ErPX372vY/e5H0/fdzFr97zLigFBGBCEAUEYEIQBQRgQhAEnnis1ut/89H0Rs26bb6zyPnSuxe7rWzEgCAOCMCAIA4IwIAgDgjDgxH6M2547dNv8ZOTU9U9dZxXnY8BGPkpBEAYEYUAQBgRhQBAGrJhjrNp3MTI7N7DP4b99P2e9LjsHfWTVz4MVA4IwIAgDgjAgCAOCMCAIA55wzvdTnmu0yqlzrEd2vy9POe/cigFBGBCEAUEYEIQBQRgQhAEr5hi3PU/ptnPBZ52a59x2fsj70NxjxIoBQRgQhAFBGCAM+HesGBCEAcF+jH9wal6xe25z2/khr8vOJ7FiQBAGBGFAEAYEYUAQBgRhwJP3Y8y67Rzx2dcd2T0HOOW96OdnFSsGBGFAEAYEYUAQBgRhQBAGrDjne/f95t3Xn71//5RzxJ/yvrwWff9nea4ULOCjFARhQBAGBGFAEAYEYcCKOcZtv8c/e9961f6EU/fXb5u3vDbvSzm1n8SKAUEYEIQBQRgQhAFBGBCEASvmGCOn9ifcdv70d5sPvA99f3a/rhUDgjAgCAOCMCAIA4IwIAgDds4xftZ9C6fOzbhtzvC6bF7knG84wEcpCMKAIAwIwoAgDAjCgBNzjNucOif71HOTds9VRm77/8+yYkAQBgRhQBAGBGFAEAYEYUD4dnOM3ftDbjtnY3T92845eR16jtaIFQOCMCAIA4IwIAgDgjAgCANOzDFOnZ8wsnv/w+7nQc3OJZ4yb5nluVJwgI9SEIQBQRgQhAFBGBCEATvnGLf9fv9tzym6be5xymvz+R72Y8BGPkpBEAYEYUAQBgRhQBAGhB+fz6f+Hr41KwYEYUAQBgRhQBAGBGFAEAYEYUAQBgRhQBAGBGFAEAYEYUAQBnz93Z9fIEYbAEacIAAAAABJRU5ErkJggg=='
+let _qrImg
+function qrImage() {
+  if (_qrImg !== undefined) return Promise.resolve(_qrImg)
+  return new Promise(res => {
+    const i = new Image()
+    i.onload = () => res(_qrImg = i); i.onerror = () => res(_qrImg = null)
+    i.src = 'data:image/png;base64,' + QR_B64
+  })
+}
 function showShot(dataUrl, hint) {
   document.getElementById('shot-img').src = dataUrl
   document.getElementById('shot-hint').textContent = hint
