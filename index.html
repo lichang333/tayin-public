@@ -15,7 +15,10 @@
     --l1: #C89F63; --l2: #B88749; --l3: #A16829; --l4: #834F1D; --l5: #613813;
   }
   /* 思源宋体 Black（子集，仅地名用字）：书卷气的特粗宋体，优雅又醒目 */
-  @font-face { font-family: 'MapSerif'; src: url('./serif-map.woff2?v=2') format('woff2'); font-weight: 900; font-display: swap; }
+  @font-face { font-family: 'MapSerif'; src: url('./serif-map.woff2?v=3') format('woff2'); font-weight: 900; font-display: swap; }
+  /* 寒蝉圆体 Bold（思源黑体圆角化，OFL）：A/B 测试用，?font=round 启用 */
+  @font-face { font-family: 'MapRound'; src: url('./round-map.woff2?v=1') format('woff2'); font-weight: 700; font-display: swap; }
+  .font-round .rlabel, .font-round .dfrac { font-family: 'MapRound', 'PingFang SC', sans-serif; font-weight: 700; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
     background: var(--paper);
@@ -550,6 +553,30 @@ svg.addEventListener('pointerup', () => {
   if (tMoved) { gestureBlockClick = true; setTimeout(() => gestureBlockClick = false, 30) }
 })
 
+// ---------- A/B 测试开关（URL 参数，默认关）：?corner=cut 斜角轮廓 / ?font=round 圆体地名 ----------
+const AB = new URLSearchParams(location.search)
+const CORNER_CUT = AB.get('corner') === 'cut'
+if (AB.get('font') === 'round') document.body.classList.add('font-round')
+// 把积木轮廓的直角切成 45° 斜角：去共线点后，每个拐角用「入向缩 t + 出向进 t」两点替代
+function chamferPath(d, t) {
+  return d.split('Z').filter(s => s.trim()).map(seg => {
+    const pts = seg.replace(/[ML]/g, ' ').trim().split(/\s+/).map(p => p.split(',').map(Number))
+    const core = []
+    for (let i = 0; i < pts.length; i++) {
+      const a = pts[(i + pts.length - 1) % pts.length], b = pts[i], c = pts[(i + 1) % pts.length]
+      if ((b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0]) !== 0) core.push(b)   // 只留真拐角
+    }
+    const out = []
+    for (let i = 0; i < core.length; i++) {
+      const p = core[i], prev = core[(i + core.length - 1) % core.length], next = core[(i + 1) % core.length]
+      const di = [Math.sign(p[0] - prev[0]), Math.sign(p[1] - prev[1])]
+      const dn = [Math.sign(next[0] - p[0]), Math.sign(next[1] - p[1])]
+      out.push([p[0] - di[0] * t, p[1] - di[1] * t], [p[0] + dn[0] * t, p[1] + dn[1] * t])
+    }
+    return 'M' + out.map(p => p[0] + ',' + p[1]).join('L') + 'Z'
+  }).join('')
+}
+
 function buildMap(grid) {
   hideTip()   // 换图时旧块已移除，mouseleave 不会触发，这里兜底收掉提示
   const [bx0, by0, bx1, by1] = grid.bbox
@@ -572,7 +599,8 @@ function buildMap(grid) {
     `${((+x) - bx0) * CELL},${((+y) - by0) * CELL}`)
   for (const r of grid.regions) {
     const path = document.createElementNS(NS, 'path')
-    path.setAttribute('d', scalePath(r.d))
+    const pd = scalePath(r.d)
+    path.setAttribute('d', CORNER_CUT ? chamferPath(pd, CELL * 0.32) : pd)
     path.setAttribute('class', 'cellpoly')
     path.setAttribute('fill-rule', 'evenodd')
     path.addEventListener('click', e => {
