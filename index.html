@@ -1098,7 +1098,8 @@ document.getElementById('share-img').onclick = () => withBusy(async () => {
   const blob = await canvasBlob(await renderShareCanvas())
   const file = new File([blob], '踏印-中国打卡地图.png', { type: 'image/png' })
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
-    try { await navigator.share({ files: [file], title: '踏印 · 中国打卡地图', text: '我的中国打卡地图' }); return }
+    // 只传文件：负载里带 title/text 时，微信等分享目标会按文字处理而拒收图片、拉起后被弹回
+    try { await navigator.share({ files: [file] }); return }
     catch (e) { if (e.name === 'AbortError') return }
   }
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob)
