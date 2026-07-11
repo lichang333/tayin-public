@@ -123,6 +123,13 @@
     border-radius: 999px; box-shadow: 0 4px 14px rgba(0,0,0,0.28); z-index: 90; opacity: 0; pointer-events: none;
     transition: opacity 0.2s, transform 0.2s; }
   .toast.show { opacity: 1; transform: translate(-50%, 0); }
+  /* 微信内浏览器：无系统分享面板且禁下载，全屏展示生成图让用户长按转发/保存 */
+  .shot-mask { position: fixed; inset: 0; z-index: 100; background: rgba(27,36,48,.82);
+    display: none; flex-direction: column; align-items: center; justify-content: center; gap: 13px; padding: 22px; }
+  .shot-mask.open { display: flex; }
+  .shot-mask img { max-width: 100%; max-height: 74vh; border-radius: 10px; box-shadow: 0 10px 34px rgba(0,0,0,.45); }
+  .shot-hint { color: #FFF6E8; font-size: 15px; font-weight: 700; }
+  .shot-sub { color: rgba(255,246,232,.6); font-size: 12px; font-weight: 600; }
   .foot { margin-top: 14px; font-size: 12px; color: var(--text-mid); font-weight: 600; text-align: center; line-height: 1.6; }
   .foot a { color: var(--copper); text-decoration: none; }
   .help-toggle { cursor: pointer; opacity: 0.85; white-space: nowrap; }
@@ -271,6 +278,11 @@
     <button class="actbtn primary" id="share-img"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 13V4"/><path d="M8.5 7.5 12 4l3.5 3.5"/><path d="M7 12H5v8h14v-8h-2"/></svg>分享</button>
   </div>
   <div class="toast" id="toast"></div>
+  <div class="shot-mask" id="shot-mask">
+    <img id="shot-img" alt="分享图">
+    <div class="shot-hint" id="shot-hint">长按图片 · 发送给朋友或保存</div>
+    <div class="shot-sub">点空白处关闭</div>
+  </div>
 
   <p class="foot">
     <span id="prov-line"></span>　·　<span id="storage-hint">数据存于本机浏览器</span>
@@ -1078,6 +1090,15 @@ async function renderShareCanvas() {
   return cv
 }
 function canvasBlob(cv) { return new Promise(res => cv.toBlob(res, 'image/png')) }
+const IS_WECHAT = /MicroMessenger/i.test(navigator.userAgent)
+function showShot(dataUrl, hint) {
+  document.getElementById('shot-img').src = dataUrl
+  document.getElementById('shot-hint').textContent = hint
+  document.getElementById('shot-mask').classList.add('open')
+}
+document.getElementById('shot-mask').addEventListener('click', e => {
+  if (e.target.id !== 'shot-img') e.currentTarget.classList.remove('open')   // 长按图片不关，点空白关
+})
 let _busy = false
 async function withBusy(fn) {
   if (_busy) return
@@ -1088,14 +1109,18 @@ async function withBusy(fn) {
   finally { _busy = false; btns.forEach(b => b.disabled = false) }
 }
 document.getElementById('save-img').onclick = () => withBusy(async () => {
-  const blob = await canvasBlob(await renderShareCanvas())
+  const cv = await renderShareCanvas()
+  if (IS_WECHAT) { showShot(cv.toDataURL('image/png'), '长按图片 · 保存到相册'); return }   // 微信禁下载
+  const blob = await canvasBlob(cv)
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob)
   a.download = '踏印-中国打卡地图.png'; document.body.appendChild(a); a.click(); a.remove()
   setTimeout(() => URL.revokeObjectURL(a.href), 8000)
   toast('已存到相册/下载')
 })
 document.getElementById('share-img').onclick = () => withBusy(async () => {
-  const blob = await canvasBlob(await renderShareCanvas())
+  const cv = await renderShareCanvas()
+  if (IS_WECHAT) { showShot(cv.toDataURL('image/png'), '长按图片 · 发送给朋友或保存'); return }   // 微信内无分享面板
+  const blob = await canvasBlob(cv)
   const file = new File([blob], '踏印-中国打卡地图.png', { type: 'image/png' })
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
     // 只传文件：负载里带 title/text 时，微信等分享目标会按文字处理而拒收图片、拉起后被弹回
