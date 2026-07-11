@@ -108,6 +108,21 @@
     border-radius: 9px; padding: 8px 16px; cursor: pointer; transition: background 0.15s;
   }
   .btn:hover { background: #EFE9DB; }
+  .actbar { display: flex; gap: 10px; justify-content: center; margin-top: 16px; }
+  .actbtn { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700;
+    color: var(--ink); background: var(--land); border: 1.3px solid var(--ink); border-radius: 999px;
+    padding: 7px 17px; cursor: pointer; transition: background .15s, box-shadow .15s; }
+  .actbtn svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.9;
+    stroke-linecap: round; stroke-linejoin: round; }
+  .actbtn:hover { background: #EFE9DB; }
+  .actbtn.primary { background: var(--copper); border-color: var(--copper); color: #FFF6E8; }
+  .actbtn.primary:hover { background: #966029; box-shadow: 0 3px 12px rgba(169,112,47,.32); }
+  .actbtn:disabled { opacity: 0.55; cursor: default; }
+  .toast { position: fixed; left: 50%; bottom: 40px; transform: translate(-50%, 12px);
+    background: var(--ink); color: #FFF6E8; font-size: 13px; font-weight: 700; padding: 9px 16px;
+    border-radius: 999px; box-shadow: 0 4px 14px rgba(0,0,0,0.28); z-index: 90; opacity: 0; pointer-events: none;
+    transition: opacity 0.2s, transform 0.2s; }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
   .foot { margin-top: 14px; font-size: 12px; color: var(--text-mid); font-weight: 600; text-align: center; line-height: 1.6; }
   .foot a { color: var(--copper); text-decoration: none; }
   .help-toggle { cursor: pointer; opacity: 0.85; white-space: nowrap; }
@@ -250,6 +265,12 @@
     <div class="popup" id="popup"></div>
     <div class="tip" id="tip"></div>
   </div>
+
+  <div class="actbar">
+    <button class="actbtn" id="save-img"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v8.5"/><path d="M8.5 9.5 12 13l3.5-3.5"/><path d="M7 12H5v8h14v-8h-2"/></svg>存图</button>
+    <button class="actbtn primary" id="share-img"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 13V4"/><path d="M8.5 7.5 12 4l3.5 3.5"/><path d="M7 12H5v8h14v-8h-2"/></svg>分享</button>
+  </div>
+  <div class="toast" id="toast"></div>
 
   <p class="foot">
     <span id="prov-line"></span>　·　<span id="storage-hint">数据存于本机浏览器</span>
@@ -961,6 +982,130 @@ async function restoreSession() {
     if (e.status === 401) { setAuth(null, null); refresh() }
   }
 }
+
+// ---------- 存图 / 分享：把当前地图渲染成 PNG（标题 + 分数 + 图例 + 地图 + 水印） ----------
+let toastT = null
+function toast(msg) {
+  const el = document.getElementById('toast')
+  el.textContent = msg; el.classList.add('show')
+  clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('show'), 2600)
+}
+let _fontCss   // 缓存内联字体（首次导出时抓一次）
+async function inlineFont() {
+  if (_fontCss != null) return _fontCss
+  try {
+    const serif = document.body.classList.contains('font-serif')
+    const url = serif ? './serif-map.woff2?v=3' : './round-map.woff2?v=1'
+    const fam = serif ? 'MapSerif' : 'MapRound', wt = serif ? 900 : 700
+    const u8 = new Uint8Array(await (await fetch(url)).arrayBuffer())
+    let bin = ''; for (let i = 0; i < u8.length; i++) bin += String.fromCharCode(u8[i])
+    _fontCss = `@font-face{font-family:'${fam}';font-weight:${wt};src:url(data:font/woff2;base64,${btoa(bin)}) format('woff2')}`
+  } catch { _fontCss = '' }
+  return _fontCss
+}
+function svgToImage(str) {
+  return new Promise((res, rej) => {
+    const img = new Image()
+    img.onload = () => res(img); img.onerror = rej
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(str)
+  })
+}
+function shareSubtitle() {
+  if (view.mode === 'china') return (document.querySelector('.score')?.textContent || '').replace(/\s+/g, ' ').trim()
+  const pill = (document.querySelector('.crumb-pill')?.textContent || '').replace(/\s+/g, ' ').trim()
+  const sc = (document.querySelector('.cscore')?.textContent || '').replace(/\s+/g, ' ').trim()
+  return (pill + '　' + sc).trim()
+}
+function drawLegend(ctx, x, y, W) {
+  const rows = [...document.querySelectorAll('#legend .lg-row')]
+  if (!rows.length) return 0
+  ctx.font = "700 13px 'PingFang SC','Microsoft YaHei',sans-serif"
+  ctx.textBaseline = 'middle'
+  const items = rows.map(r => ({ bg: getComputedStyle(r.querySelector('.lg-sw')).backgroundColor, t: r.textContent.replace(/\s+/g, ' ').trim() }))
+  const wOf = it => 20 + ctx.measureText(it.t).width + 15
+  const total = items.reduce((s, it) => s + wOf(it), 0)
+  let cx = x + Math.max(0, (W - total) / 2)   // 居中
+  const cy = y + 15
+  for (const it of items) {
+    ctx.fillStyle = it.bg; ctx.strokeStyle = '#1B2430'; ctx.lineWidth = 1.2
+    ctx.fillRect(cx, cy - 7, 16, 12); ctx.strokeRect(cx, cy - 7, 16, 12)
+    cx += 20
+    ctx.fillStyle = '#1B2430'; ctx.fillText(it.t, cx, cy)
+    cx += ctx.measureText(it.t).width + 15
+  }
+  ctx.textBaseline = 'alphabetic'
+  return 30
+}
+async function renderShareCanvas() {
+  const svg = document.getElementById('map'), vb = svg.viewBox.baseVal
+  const clone = svg.cloneNode(true)
+  const oEls = svg.querySelectorAll('*'), cEls = clone.querySelectorAll('*')
+  const props = ['fill', 'stroke', 'stroke-width', 'stroke-linejoin', 'opacity', 'font-family', 'font-size', 'font-weight', 'text-anchor', 'dominant-baseline', 'letter-spacing']
+  for (let i = 0; i < oEls.length; i++) {
+    const cs = getComputedStyle(oEls[i])
+    for (const p of props) cEls[i].style.setProperty(p, cs.getPropertyValue(p))
+  }
+  clone.querySelectorAll('.dmark').forEach(e => e.remove())   // ▦ 只是交互提示，静态图里去掉
+  clone.querySelector('g')?.removeAttribute('transform')   // 复位缩放，导出整图
+  clone.style.transform = ''
+  const st = document.createElementNS(NS, 'style'); st.textContent = await inlineFont()
+  clone.insertBefore(st, clone.firstChild)
+  clone.setAttribute('width', vb.width); clone.setAttribute('height', vb.height); clone.setAttribute('xmlns', NS)
+  const mapImg = await svgToImage(new XMLSerializer().serializeToString(clone))
+
+  const S = 2, PAD = 22, titleH = 62
+  const mapW = Math.min(760, Math.max(360, vb.width))
+  const mapH = mapW * vb.height / vb.width
+  const legVisible = getComputedStyle(document.getElementById('legend')).display !== 'none'
+  const legendH = legVisible ? 30 : 0
+  const W = Math.max(mapW, 380) + PAD * 2
+  const H = PAD + titleH + legendH + mapH + PAD + 8
+  const cv = document.createElement('canvas')
+  cv.width = W * S; cv.height = H * S
+  const ctx = cv.getContext('2d'); ctx.scale(S, S)
+  ctx.fillStyle = getComputedStyle(document.body).backgroundColor || '#E7E0D0'
+  ctx.fillRect(0, 0, W, H)
+  ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'
+  ctx.fillStyle = '#1B2430'; ctx.font = "700 25px 'Songti SC','PingFang SC',serif"
+  ctx.fillText('踏印 · 中国打卡地图', PAD, PAD + 24)
+  ctx.fillStyle = '#A9702F'; ctx.font = "700 15px 'PingFang SC','Microsoft YaHei',sans-serif"
+  ctx.fillText(shareSubtitle(), PAD, PAD + 46)
+  let y = PAD + titleH
+  if (legVisible) y += drawLegend(ctx, PAD, y, W - PAD * 2)
+  ctx.drawImage(mapImg, (W - mapW) / 2, y, mapW, mapH)
+  ctx.fillStyle = 'rgba(88,101,114,.8)'; ctx.font = "600 12px 'PingFang SC',sans-serif"
+  ctx.textAlign = 'right'; ctx.fillText('tayin.digitalvio.shop', W - PAD, H - 10)
+  return cv
+}
+function canvasBlob(cv) { return new Promise(res => cv.toBlob(res, 'image/png')) }
+let _busy = false
+async function withBusy(fn) {
+  if (_busy) return
+  _busy = true
+  const btns = [document.getElementById('save-img'), document.getElementById('share-img')]
+  btns.forEach(b => b.disabled = true)
+  try { await fn() } catch (e) { toast('生成失败，请重试') }
+  finally { _busy = false; btns.forEach(b => b.disabled = false) }
+}
+document.getElementById('save-img').onclick = () => withBusy(async () => {
+  const blob = await canvasBlob(await renderShareCanvas())
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob)
+  a.download = '踏印-中国打卡地图.png'; document.body.appendChild(a); a.click(); a.remove()
+  setTimeout(() => URL.revokeObjectURL(a.href), 8000)
+  toast('已存到相册/下载')
+})
+document.getElementById('share-img').onclick = () => withBusy(async () => {
+  const blob = await canvasBlob(await renderShareCanvas())
+  const file = new File([blob], '踏印-中国打卡地图.png', { type: 'image/png' })
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file], title: '踏印 · 中国打卡地图', text: '我的中国打卡地图' }); return }
+    catch (e) { if (e.name === 'AbortError') return }
+  }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob)
+  a.download = '踏印-中国打卡地图.png'; document.body.appendChild(a); a.click(); a.remove()
+  setTimeout(() => URL.revokeObjectURL(a.href), 8000)
+  toast('已存图 · 长按图片即可分享到微信')
+})
 
 renderUserbar()
 renderChina()
