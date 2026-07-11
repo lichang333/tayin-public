@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>踏印 · 中国制县等级</title>
-<meta name="description" content="一地一印 —— 积木拼出真实轮廓的中国制县等级地图">
+<title>踏印 · 中国打卡地图</title>
+<meta name="description" content="一地一印 —— 积木拼出真实轮廓的中国打卡地图，记录你到访每座城市的深浅">
 <style>
   :root {
     --paper: #E7E0D0;
@@ -36,11 +36,11 @@
   .score { font-family: 'Songti SC',serif; font-size: 22px; font-weight: 700; color: var(--copper); margin-bottom: 12px; }
   .score small { font-size: 12px; color: var(--text-mid); font-weight: 600; }
 
-  /* 浮在地图左上角的小盒子（参考 japanex），腾出头部空间 */
-  .legend { position: absolute; top: 6px; left: 6px; z-index: 6;
-    display: grid; grid-template-columns: auto auto; gap: 3px 12px;
+  /* 图例排在地图上方的一条（不再浮在地图上，避免挡住左上角的地块） */
+  .legend { display: flex; flex-wrap: wrap; justify-content: center; align-items: center;
+    gap: 4px 13px; width: fit-content; margin: 0 auto 8px; padding: 5px 12px;
     background: rgba(251,248,241,0.9); border: 1.3px solid var(--ink); border-radius: 9px;
-    padding: 7px 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.12); backdrop-filter: blur(1px); }
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
   .lg-row { display: flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; color: var(--ink); }
   .lg-sw { width: 16px; height: 11px; border: 1.3px solid var(--ink); border-radius: 3px; flex-shrink: 0; }
   .lg-sw.lv0 { background: var(--land); }
@@ -221,7 +221,7 @@
     <div class="brand-seal">印</div>
     <h1>踏印</h1>
   </div>
-  <p class="tagline">一地一印 —— 中国制县等级地图</p>
+  <p class="tagline">一地一印 —— 中国打卡地图</p>
   <div class="score"><span id="score">0</span><small> 分 · <span id="touched">0</span>/<span id="totaln">0</span> 地</small></div>
 
   <div class="userbar" id="userbar"></div>
@@ -235,8 +235,8 @@
   <div class="crumb" id="crumb"></div>
 
   <div class="stage">
-    <svg id="map" xmlns="http://www.w3.org/2000/svg"></svg>
     <div class="legend" id="legend"></div>
+    <svg id="map" xmlns="http://www.w3.org/2000/svg"></svg>
     <div class="zoombar">
       <button id="zoom-in" aria-label="放大">＋</button>
       <button id="zoom-out" aria-label="缩小">－</button>
@@ -275,8 +275,8 @@
   // API 地址：本地开发同源留空；部署到 GitHub Pages 等其它域名时指向后端
   window.TAYIN_API = /^(localhost|127\.0\.0\.1)?$/.test(location.hostname) ? '' : 'https://tayin.digitalvio.shop'
 </script>
-<script src="./tile-geo.js?v=14"></script>
-<script src="./drill-geo.js?v=14"></script>
+<script src="./tile-geo.js?v=15"></script>
+<script src="./drill-geo.js?v=15"></script>
 <script>
 const LEVELS = [
   { v:5, label:'住过 · 居住过' }, { v:4, label:'住宿 · 过夜旅行' },
