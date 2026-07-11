@@ -14,11 +14,11 @@
     --copper: #A9702F;
     --l1: #C89F63; --l2: #B88749; --l3: #A16829; --l4: #834F1D; --l5: #613813;
   }
-  /* 思源宋体 Black（子集，仅地名用字）：书卷气的特粗宋体，优雅又醒目 */
-  @font-face { font-family: 'MapSerif'; src: url('./serif-map.woff2?v=3') format('woff2'); font-weight: 900; font-display: swap; }
-  /* 寒蝉圆体 Bold（思源黑体圆角化，OFL）：A/B 测试用，?font=round 启用 */
+  /* 寒蝉圆体 Bold（思源黑体圆角化，OFL）：默认地名字体，圆润亲和 */
   @font-face { font-family: 'MapRound'; src: url('./round-map.woff2?v=1') format('woff2'); font-weight: 700; font-display: swap; }
-  .font-round .rlabel, .font-round .dfrac { font-family: 'MapRound', 'PingFang SC', sans-serif; font-weight: 700; }
+  /* 思源宋体 Black（子集）：留档变体，?font=serif 切回 */
+  @font-face { font-family: 'MapSerif'; src: url('./serif-map.woff2?v=3') format('woff2'); font-weight: 900; font-display: swap; }
+  .font-serif .rlabel, .font-serif .dfrac { font-family: 'MapSerif', 'Songti SC', serif; font-weight: 900; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
     background: var(--paper);
@@ -76,13 +76,13 @@
   .tip.show { display: block; }
   .tip small { font-weight: 600; opacity: 0.82; margin-left: 5px; }
 
-  .rlabel { font-family: 'MapSerif', 'Songti SC', serif; font-weight: 900; fill: var(--ink); text-anchor: middle; dominant-baseline: central; pointer-events: none; }
+  .rlabel { font-family: 'MapRound', 'PingFang SC', sans-serif; font-weight: 700; fill: var(--ink); text-anchor: middle; dominant-baseline: central; pointer-events: none; }
   .rlabel.lv3, .rlabel.lv4, .rlabel.lv5 { fill: #FFF6E8; }
 
   .dmark { fill: var(--copper); opacity: 0.55; text-anchor: end; pointer-events: none; font-weight: 700; }
   .dmark.lv3, .dmark.lv4, .dmark.lv5 { fill: #FFF6E8; }
 
-  .dfrac { font-family: 'MapSerif', 'Songti SC', serif; fill: var(--copper); text-anchor: middle; dominant-baseline: central; pointer-events: none; font-weight: 900; letter-spacing: 0.02em; }
+  .dfrac { font-family: 'MapRound', 'PingFang SC', sans-serif; fill: var(--copper); text-anchor: middle; dominant-baseline: central; pointer-events: none; font-weight: 700; letter-spacing: 0.02em; }
   .dfrac.lv3, .dfrac.lv4, .dfrac.lv5 { fill: #FFF6E8; opacity: 0.92; }
 
   .popup {
@@ -141,6 +141,9 @@
   .tab small { font-weight: 600; opacity: 0.75; margin-left: 3px; }
   .tdot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; vertical-align: 1px; }
   .tab.active .tdot { display: none; }
+  /* 面包屑里的「当前组」胶囊：延续标签栏激活态样式（组色底+进度），标识当前位置，不可点 */
+  .crumb-pill { font-size: 12.5px; font-weight: 700; color: #FFF6E8; border-radius: 999px; padding: 5px 12px; }
+  .crumb-pill small { font-weight: 600; opacity: 0.8; margin-left: 4px; }
 
   /* 账号控件：右上角，不占中间 */
   .userbar { position: absolute; top: 14px; right: 14px; z-index: 20; display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 700; color: var(--text-mid); }
@@ -553,10 +556,10 @@ svg.addEventListener('pointerup', () => {
   if (tMoved) { gestureBlockClick = true; setTimeout(() => gestureBlockClick = false, 30) }
 })
 
-// ---------- A/B 测试开关（URL 参数，默认关）：?corner=cut 斜角轮廓 / ?font=round 圆体地名 ----------
+// ---------- A/B 测试开关（URL 参数，默认关）：?corner=cut 斜角轮廓 / ?font=serif 切回宋体地名 ----------
 const AB = new URLSearchParams(location.search)
 const CORNER_CUT = AB.get('corner') === 'cut'
-if (AB.get('font') === 'round') document.body.classList.add('font-round')
+if (AB.get('font') === 'serif') document.body.classList.add('font-serif')
 // 把积木轮廓的直角切成 45° 斜角：去共线点后，每个拐角用「入向缩 t + 出向进 t」两点替代
 function chamferPath(d, t) {
   return d.split('Z').filter(s => s.trim()).map(seg => {
@@ -693,25 +696,30 @@ function renderDrill(parent) {
 
 function updateCrumb() {
   const crumb = document.getElementById('crumb')
+  // 分组/县级视图隐藏标签栏：全国图是「目录」，进组后组名与进度由面包屑独家显示，不再重复
+  document.querySelector('.tabsbar').style.display = view.mode === 'china' ? '' : 'none'
   if (view.mode === 'china') { crumb.classList.remove('show'); return }
+  const hue = (RAMPS[curGroup.id] || RAMPS.chuanyu).h
+  // 组色柔光：一圈浅色描边 + 向外的同色光晕（hex 拼透明度，兼容老 WebView）
+  const pillStyle = `background:${hue};box-shadow:0 0 0 3px ${hue}2e,0 0 16px ${hue}8c,0 1px 4px rgba(0,0,0,.18)`
   if (view.mode === 'group') {
-    // 分组图：返回全国
+    // 分组图：返回全国 + 当前组胶囊（延续标签栏样式，进度并入胶囊）
     let total = 0, touched = 0
     for (const r of curGroup.regions) { const lv = effLevel(r.code); total += lv; if (lv > 0) touched++ }
     crumb.innerHTML =
-      `<div class="crumb-l"><button class="back" id="crumb-back">‹ 返回全国</button><span class="crumb-title">${curGroup.name}</span></div>` +
-      `<span class="cscore"><b>${total}</b> 分 · 已踏 <b>${touched}</b>/${curGroup.regions.length}</span>`
+      `<div class="crumb-l"><button class="back" id="crumb-back">‹ 返回全国</button><span class="crumb-pill" style="${pillStyle}">${curGroup.name}<small>${touched}/${curGroup.regions.length}</small></span></div>` +
+      `<span class="cscore"><b>${total}</b> 分</span>`
     crumb.classList.add('show')
     document.getElementById('crumb-back').onclick = exitToChina
     return
   }
-  // 县级图：返回所属分组
+  // 县级图：返回所属分组 + 当前市胶囊
   const g = DRILL[view.parent.code], u = g.unit || '县'
   let total = 0, touched = 0
   for (const r of g.regions) { const lv = levels[r.code] || 0; total += lv; if (lv > 0) touched++ }
   crumb.innerHTML =
-    `<div class="crumb-l"><button class="back" id="crumb-back">‹ 返回${curGroup.name}</button><span class="crumb-title">${view.parent.name} · 各${u}</span></div>` +
-    `<span class="cscore"><b>${total}</b> 分 · 已踏 <b>${touched}</b>/${g.regions.length} ${u}</span>`
+    `<div class="crumb-l"><button class="back" id="crumb-back">‹ 返回${curGroup.name}</button><span class="crumb-pill" style="${pillStyle}">${view.parent.name} · 各${u}<small>${touched}/${g.regions.length}</small></span></div>` +
+    `<span class="cscore"><b>${total}</b> 分</span>`
   crumb.classList.add('show')
   document.getElementById('crumb-back').onclick = exitDrill
 }
