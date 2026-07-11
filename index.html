@@ -14,6 +14,8 @@
     --copper: #A9702F;
     --l1: #C89F63; --l2: #B88749; --l3: #A16829; --l4: #834F1D; --l5: #613813;
   }
+  /* 思源宋体 Black（子集，仅地名用字）：书卷气的特粗宋体，优雅又醒目 */
+  @font-face { font-family: 'MapSerif'; src: url('./serif-map.woff2?v=2') format('woff2'); font-weight: 900; font-display: swap; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
     background: var(--paper);
@@ -71,13 +73,13 @@
   .tip.show { display: block; }
   .tip small { font-weight: 600; opacity: 0.82; margin-left: 5px; }
 
-  .rlabel { font-weight: 700; fill: var(--ink); text-anchor: middle; dominant-baseline: central; pointer-events: none; }
+  .rlabel { font-family: 'MapSerif', 'Songti SC', serif; font-weight: 900; fill: var(--ink); text-anchor: middle; dominant-baseline: central; pointer-events: none; }
   .rlabel.lv3, .rlabel.lv4, .rlabel.lv5 { fill: #FFF6E8; }
 
-  .dmark { fill: var(--copper); opacity: 0.9; text-anchor: end; pointer-events: none; font-weight: 700; }
+  .dmark { fill: var(--copper); opacity: 0.55; text-anchor: end; pointer-events: none; font-weight: 700; }
   .dmark.lv3, .dmark.lv4, .dmark.lv5 { fill: #FFF6E8; }
 
-  .dfrac { fill: var(--copper); text-anchor: middle; dominant-baseline: central; pointer-events: none; font-weight: 700; letter-spacing: 0.02em; }
+  .dfrac { font-family: 'MapSerif', 'Songti SC', serif; fill: var(--copper); text-anchor: middle; dominant-baseline: central; pointer-events: none; font-weight: 900; letter-spacing: 0.02em; }
   .dfrac.lv3, .dfrac.lv4, .dfrac.lv5 { fill: #FFF6E8; opacity: 0.92; }
 
   .popup {
@@ -105,6 +107,11 @@
   .btn:hover { background: #EFE9DB; }
   .foot { margin-top: 14px; font-size: 12px; color: var(--text-mid); font-weight: 600; text-align: center; line-height: 1.6; }
   .foot a { color: var(--copper); text-decoration: none; }
+  .help-toggle { cursor: pointer; opacity: 0.85; white-space: nowrap; }
+  .help-toggle:hover { opacity: 1; }
+  .foot-help { margin-top: 6px; max-width: 620px; font-size: 11.5px; color: var(--text-mid);
+    line-height: 1.7; text-align: center; opacity: 0.9; }
+  .foot-help b { color: var(--copper); font-weight: 700; }
 
   .tabs { display: flex; flex-wrap: nowrap; justify-content: flex-start; gap: 7px; margin-bottom: 10px;
     max-width: 1040px; width: 100%; overflow-x: auto; scrollbar-width: none; padding: 2px 2px;
@@ -239,10 +246,14 @@
   </div>
 
   <p class="foot">
-    <span id="prov-line"></span>　｜　积木拼出真实轮廓，<span id="storage-hint">数据存于本机浏览器</span><br>
-    点击地州市选择到访等级：住过 5 · 住宿 4 · 玩过 3 · 途经 2 · 落地 1 · 未踏 0<br>
-    带 ▦ 角标的可细分：点开后按标题栏胶囊进入，或双击直入；全国图点广东 / 港澳进大湾区，印记与闽粤桂共享、总分去重
+    <span id="prov-line"></span>　·　<span id="storage-hint">数据存于本机浏览器</span>
+    　·　<a href="javascript:void 0" id="help-toggle" class="help-toggle">用法 ▾</a>
   </p>
+  <div class="foot-help" id="foot-help" hidden>
+    点击地块选到访等级：住过 5 · 住宿 4 · 玩过 3 · 途经 2 · 落地 1 · 未踏 0。<br>
+    带 <b>▦</b> 的可细分：点开后按标题栏胶囊进入，或双击直入。<br>
+    全国图点<b>广东 / 港澳</b>会进「大湾区」，其印记与闽粤桂共享、总分去重。
+  </div>
 
   <div class="modal-mask" id="auth-mask">
     <div class="modal">
@@ -264,8 +275,8 @@
   // API 地址：本地开发同源留空；部署到 GitHub Pages 等其它域名时指向后端
   window.TAYIN_API = /^(localhost|127\.0\.0\.1)?$/.test(location.hostname) ? '' : 'https://tayin.digitalvio.shop'
 </script>
-<script src="./tile-geo.js?v=5"></script>
-<script src="./drill-geo.js?v=5"></script>
+<script src="./tile-geo.js?v=14"></script>
+<script src="./drill-geo.js?v=14"></script>
 <script>
 const LEVELS = [
   { v:5, label:'住过 · 居住过' }, { v:4, label:'住宿 · 过夜旅行' },
@@ -287,11 +298,20 @@ const RAMPS = {
   jjjj: { r: ['#eaa9a6','#df7a77','#d44944','#a72c27','#731e1b'], p: '#ebdcdb', h: '#D6534E' },
   nmg: { r: ['#a5c2da','#75a1c6','#467eab','#315878','#223d53'], p: '#dbe1e7', h: '#5E8BB0' },
   dss: { r: ['#a9bee4','#7b9ad5','#4b76c6','#2f5395','#213967'], p: '#dce0e9', h: '#4F79C7' },
-  jzsw: { r: ['#8ad3ca','#4bbbad','#358e82','#26635c','#1a453f'], p: '#d7e4e3', h: '#3FA79A' },
-  myg: { r: ['#9cd394','#68bc5c','#46933c','#31672a','#22461d'], p: '#dae4d8', h: '#5FA855' },
-  xeg: { r: ['#c6b0df','#a886cd','#8759bb','#633b8f','#442863'], p: '#e2dde8', h: '#8E6FB0' },
-  ly: { r: ['#e2b773','#d0912b','#9c6c20','#6e4c16','#4c340f'], p: '#e7dfd2', h: '#E0A13C' },
-  ygcy: { r: ['#e2b193','#d38659','#b15f2f','#7c4321','#552e16'], p: '#e8ded7', h: '#C56A34' },
+  suhu:     { r: ['#8ad3ca','#4bbbad','#358e82','#26635c','#1a453f'], p: '#d7e4e3', h: '#3fa79a' },  // 苏沪：青
+  zhejiang: { r: ['#8ad3a5','#4bbb75','#358e56','#26633e','#1a4529'], p: '#d7e4dc', h: '#3fa766' },  // 浙江：青绿
+  anhui:    { r: ['#8abfd3','#4b9cbb','#35768e','#265263','#1a3a45'], p: '#d7e0e4', h: '#3f8aa7' },  // 安徽：青蓝
+  guangdong:{ r: ['#9cd394','#68bc5c','#46933c','#31672a','#22461d'], p: '#dae4d8', h: '#5fa855' },  // 广东：绿
+  fujian:   { r: ['#bbd394','#98bc5c','#71933c','#4f672a','#37461d'], p: '#e0e4d8', h: '#88a855' },  // 福建：黄绿
+  guangxi:  { r: ['#94d3ae','#5cbc83','#3c9360','#2a6744','#1d462e'], p: '#d8e4dc', h: '#55a877' },  // 广西：翠绿
+  shandong: { r: ['#e2b773','#d0912b','#9c6c20','#6e4c16','#4c340f'], p: '#e7dfd2', h: '#e0a13c' },  // 山东：金
+  henan:    { r: ['#e28e73','#d0552b','#9c3f20','#6e2c16','#4c1e0f'], p: '#e7d7d2', h: '#e0653c' },  // 河南：橙
+  hunan:    { r: ['#c6b0df','#a886cd','#8759bb','#633b8f','#442863'], p: '#e2dde8', h: '#8e6fb0' },  // 湖南：紫
+  hubei:    { r: ['#b0b5df','#868ccd','#5963bb','#3b438f','#282d63'], p: '#dddee8', h: '#6f75b0' },  // 湖北：蓝紫
+  jiangxi:  { r: ['#dfb0df','#cd86cc','#bb59bb','#8f3b8e','#632863'], p: '#e8dde8', h: '#b06faf' },  // 江西：品紫
+  chuanyu: { r: ['#e2b193','#d38659','#b15f2f','#7c4321','#552e16'], p: '#e8ded7', h: '#C56A34' },  // 川渝：赤陶红
+  yunnan:  { r: ['#e8c483','#d6a244','#a87c2b','#76571d','#4f3b13'], p: '#eae2d1', h: '#D4A23E' },  // 云南：琥珀金
+  guizhou: { r: ['#cbb59a','#a98d68','#836a48','#5b4931','#3d3020'], p: '#e5ded4', h: '#8E7048' },  // 贵州：褐灰
   qz: { r: ['#a3c3d9','#71a4c5','#4480a7','#305a75','#213e51'], p: '#dbe2e6', h: '#6C8A9E' },
   sgn: { r: ['#d7b695','#c28f5b','#9a6939','#6c4a28','#4a321b'], p: '#e6dfd8', h: '#A9743F' },
   xj: { r: ['#d7bb7a','#c09639','#90702b','#65501e','#453615'], p: '#e5dfd4', h: '#C9A24B' },
@@ -345,7 +365,7 @@ function lerpHex(a, b, f) {
 // 去过的省颜色（未踏在 refresh 里留纯白）：任何去过至少 l1（稍微深），再按平均加深到 l5
 function provColor(r) {
   const avg = provAvg(r)
-  const rm = RAMPS[r.group] || RAMPS.ygcy
+  const rm = RAMPS[r.group] || RAMPS.chuanyu
   const pos = Math.min(4, (avg / 5) * 4)   // 0..4 映射到 [l1…l5]
   const i = Math.floor(pos)
   return i >= 4 ? rm.r[4] : lerpHex(rm.r[i], rm.r[i + 1], pos - i)
@@ -461,8 +481,10 @@ let vp = null                 // 变换层（<g>），缩放平移作用于它
 let zoom = { s: 1, x: 0, y: 0 }
 function applyZoom() {
   if (vp) vp.setAttribute('transform', `translate(${zoom.x} ${zoom.y}) scale(${zoom.s})`)
-  svg.style.touchAction = zoom.s > 1.01 ? 'none' : 'pan-y'   // 放大后单指平移地图，否则让页面滚
-  const out = document.getElementById('zoom-out'); if (out) out.style.opacity = zoom.s > 1.01 ? '1' : '.4'
+  const zoomed = zoom.s > 1.01
+  svg.style.touchAction = zoomed ? 'none' : 'pan-y'   // 放大后单指平移地图，否则让页面滚
+  svg.style.cursor = zoomed ? 'grab' : ''             // 放大后鼠标可拖拽
+  const out = document.getElementById('zoom-out'); if (out) out.style.opacity = zoomed ? '1' : '.4'
 }
 function resetZoom() { zoom = { s: 1, x: 0, y: 0 }; applyZoom() }
 function clampZoom() {
@@ -509,6 +531,24 @@ svg.addEventListener('touchend', () => { if (tMoved) { gestureBlockClick = true;
 svg.addEventListener('click', e => { if (gestureBlockClick) { e.stopPropagation(); e.preventDefault() } }, true)
 document.getElementById('zoom-in').onclick = () => zoomStep(1.5)
 document.getElementById('zoom-out').onclick = () => zoomStep(1 / 1.5)
+{ const ht = document.getElementById('help-toggle'), hp = document.getElementById('foot-help')
+  ht.onclick = () => { const open = hp.hidden; hp.hidden = !open; ht.textContent = open ? '用法 ▴' : '用法 ▾' } }
+// 桌面：放大后鼠标拖动平移
+let mDrag = null
+svg.addEventListener('pointerdown', e => {
+  if (e.pointerType !== 'mouse' || zoom.s <= 1.01) return
+  mDrag = { x: e.clientX, y: e.clientY }; tMoved = false; svg.style.cursor = 'grabbing'
+  try { svg.setPointerCapture(e.pointerId) } catch {}
+})
+svg.addEventListener('pointermove', e => {
+  if (!mDrag) return
+  panBy(e.clientX - mDrag.x, e.clientY - mDrag.y); mDrag = { x: e.clientX, y: e.clientY }; tMoved = true
+})
+svg.addEventListener('pointerup', () => {
+  if (!mDrag) return
+  mDrag = null; svg.style.cursor = zoom.s > 1.01 ? 'grab' : ''
+  if (tMoved) { gestureBlockClick = true; setTimeout(() => gestureBlockClick = false, 30) }
+})
 
 function buildMap(grid) {
   hideTip()   // 换图时旧块已移除，mouseleave 不会触发，这里兜底收掉提示
@@ -516,7 +556,18 @@ function buildMap(grid) {
   svg.setAttribute('viewBox', `-2 -2 ${(bx1 - bx0) * CELL + 4} ${(by1 - by0) * CELL + 4}`)
   svg.innerHTML = ''
   vp = document.createElementNS(NS, 'g'); svg.appendChild(vp); resetZoom()
+  // 两层渲染：所有块在下、所有文字在上——任何名字都不会被后画的邻块盖住（如上海的「上」）
+  const gPath = document.createElementNS(NS, 'g'), gText = document.createElementNS(NS, 'g')
+  gText.setAttribute('pointer-events', 'none')
+  vp.appendChild(gPath); vp.appendChild(gText)
   shapes = {}; labels = {}; marks = {}; fracs = {}
+  // 字号按「屏幕像素」定：各图缩放比不同（全国图缩得很小），统一到易读的屏幕字号。
+  // 不读 svg.clientHeight——换图瞬间它可能是旧图/动画中的坏值；改用窗口尺寸推算（与 CSS max-height 对应）
+  const vbW = (bx1 - bx0) * CELL + 4, vbH = (by1 - by0) * CELL + 4
+  const maxVH = innerWidth <= 640 ? 0.66 : innerWidth <= 900 ? 0.72 : 0.86
+  const stageW = Math.min(1040, (document.querySelector('.stage')?.clientWidth || innerWidth - 24))
+  const scale = Math.min(stageW / vbW, innerHeight * maxVH / vbH) || 0.5
+  const fs = px => +(px / scale).toFixed(1)   // 目标屏幕 px → svg 单位
   const scalePath = d => d.replace(/([\d.]+),([\d.]+)/g, (_, x, y) =>
     `${((+x) - bx0) * CELL},${((+y) - by0) * CELL}`)
   for (const r of grid.regions) {
@@ -531,27 +582,45 @@ function buildMap(grid) {
     path.addEventListener('mouseenter', e => { hoverOn(r, path); showTip(r, e) })
     path.addEventListener('mousemove', moveTip)
     path.addEventListener('mouseleave', () => { hoverOff(path); hideTip() })
-    vp.appendChild(path)
+    gPath.appendChild(path)
     shapes[r.code] = path
 
-    // 够大的可钻块 / 省块：名字上移，给下方 a/b 让位
-    const bigDrill = (DRILL[r.code] || r.group) && r.n >= FRAC_MIN_CELLS
+    // 字号按标签落点的「局部」空间自适应：hr/vr = 构建时算好的块内最大内接矩形宽高。
+    // 横排放不下而竖向宽裕时改竖排（上海/陕西这类 1 格宽细条，中文竖排天然合适）
+    const len = Math.max(r.name.length, 1)
+    const hrPx = (r.hr || 2) * CELL * scale, vrPx = (r.vr || 2) * CELL * scale
+    const basePx = len >= 5 ? 9.5 : len >= 4 ? 10.5 : len >= 3 ? 12 : 13.5
+    const fontH = Math.min(basePx, vrPx * 0.8, hrPx * 1.02 / len)
+    const fontV = Math.min(basePx, hrPx * 0.95, vrPx * 0.95 / len)
+    const vertical = len > 1 && fontV > fontH * 1.15   // 竖排明显更优才用
+    const namePx = Math.max(9, vertical ? fontV : fontH)
+    // a/b 分数：除了块够大，还要求标签处纵向真放得下两行，否则名字会被顶出块外
+    const bigDrill = !vertical && (DRILL[r.code] || r.group) && r.n >= FRAC_MIN_CELLS && vrPx >= namePx + 12
     const t = document.createElementNS(NS, 'text')
-    t.setAttribute('x', (r.lx - bx0) * CELL)
-    t.setAttribute('y', (r.ly - by0) * CELL - (bigDrill ? 6 : 0))
-    t.setAttribute('font-size', r.n <= 2 ? 9.5 : r.name.length >= 4 ? 10 : r.name.length >= 3 ? 11 : 13)
+    const tx = (r.lx - bx0) * CELL
+    t.setAttribute('x', tx)
+    t.setAttribute('y', (r.ly - by0) * CELL - (bigDrill ? fs(6) : 0))
+    t.setAttribute('font-size', fs(namePx))
     t.setAttribute('class', 'rlabel')
-    t.textContent = r.name
-    vp.appendChild(t)
+    if (vertical) {
+      for (let i = 0; i < len; i++) {
+        const sp = document.createElementNS(NS, 'tspan')
+        sp.textContent = r.name[i]
+        sp.setAttribute('x', tx)
+        sp.setAttribute('dy', i === 0 ? `${-(len - 1) / 2}em` : '1em')
+        t.appendChild(sp)
+      }
+    } else t.textContent = r.name
+    gText.appendChild(t)
     labels[r.code] = t
 
     if (bigDrill) {
       const f = document.createElementNS(NS, 'text')
       f.setAttribute('x', (r.lx - bx0) * CELL)
-      f.setAttribute('y', (r.ly - by0) * CELL + 8)
-      f.setAttribute('font-size', 9)
+      f.setAttribute('y', (r.ly - by0) * CELL + fs(7))
+      f.setAttribute('font-size', fs(9.5))
       f.setAttribute('class', 'dfrac')
-      vp.appendChild(f)
+      gText.appendChild(f)
       fracs[r.code] = f
     }
 
@@ -559,11 +628,11 @@ function buildMap(grid) {
       // 可钻取角标：放在标签所在格的右上角（必属本单位，不会飘到邻块上）
       const m = document.createElementNS(NS, 'text')
       m.setAttribute('x', (Math.floor(r.lx) + 1 - bx0) * CELL - 2.5)
-      m.setAttribute('y', (Math.floor(r.ly) - by0) * CELL + 8)
-      m.setAttribute('font-size', 7.5)
+      m.setAttribute('y', (Math.floor(r.ly) - by0) * CELL + fs(4.5))
+      m.setAttribute('font-size', fs(5))
       m.setAttribute('class', 'dmark')
       m.textContent = '▦'
-      vp.appendChild(m)
+      gText.appendChild(m)
       marks[r.code] = m
       path.addEventListener('dblclick', () => { popup.classList.remove('open'); enterDrill(r) })
     }
@@ -580,7 +649,7 @@ function renderChina() {
 
 function renderGroup() {
   view = { mode: 'group', parent: null }
-  setRamp((RAMPS[curGroup.id] || RAMPS.ygcy).r)   // 整组一个色相，深浅表等级
+  setRamp((RAMPS[curGroup.id] || RAMPS.chuanyu).r)   // 整组一个色相，深浅表等级
   buildMap(curGroup)
   document.getElementById('legend').style.display = ''   // 分组图图例与地图同色，显示
   document.getElementById('prov-line').textContent =
@@ -589,7 +658,7 @@ function renderGroup() {
 
 function renderDrill(parent) {
   view = { mode: 'drill', parent }
-  setRamp((RAMPS[curGroup.id] || RAMPS.ygcy).r)   // 县级沿用所属分区色相
+  setRamp((RAMPS[curGroup.id] || RAMPS.chuanyu).r)   // 县级沿用所属分区色相
   buildMap(DRILL[parent.code])
   document.getElementById('legend').style.display = ''
 }
@@ -626,7 +695,7 @@ function renderTabs() {
   document.getElementById('tabs').innerHTML = home + GROUPS.map(g => {
     const touched = g.regions.reduce((s, r) => s + (effLevel(r.code) > 0 ? 1 : 0), 0)
     const active = view.mode !== 'china' && g.id === curGroup.id
-    const hue = (RAMPS[g.id] || RAMPS.ygcy).h
+    const hue = (RAMPS[g.id] || RAMPS.chuanyu).h
     const style = active ? ` style="background:${hue};border-color:${hue};color:#FFF6E8"` : ''
     const dot = `<span class="tdot" style="background:${hue}"></span>`
     return `<button class="tab ${active ? 'active' : ''}" data-g="${g.id}"${style}>${dot}${g.name}<small>${touched}/${g.regions.length}</small></button>`
