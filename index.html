@@ -107,6 +107,16 @@
   .pp-item:hover { background: #EFE9DB; }
   .pp-item .lg-sw { width: 18px; height: 12px; }
   .pp-item.current { background: #E8E0CC; }
+  .pp-guide { display: flex; align-items: center; gap: 9px; padding: 9px 12px;
+    text-decoration: none; border-bottom: 1.3px dashed var(--ink);
+    background: #FBF3E4; transition: background 0.15s; }
+  .pp-guide:hover { background: #F1E3C6; }
+  .ppg-book { font-size: 17px; flex-shrink: 0; }
+  .ppg-main { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
+  .ppg-main b { font-size: 13px; font-weight: 800; color: var(--ink); }
+  .ppg-main small { font-size: 11px; font-weight: 700; color: var(--copper); }
+  .ppg-arrow { font-size: 16px; font-weight: 800; color: var(--copper); flex-shrink: 0; }
+  .gmark { pointer-events: none; }
 
   .actions { display: flex; gap: 10px; margin-top: 16px; }
   .btn {
@@ -292,7 +302,7 @@
   </div>
 
   <p class="foot">
-    <span id="prov-line"></span>　·　<span id="storage-hint">数据存于本机浏览器</span>
+    <span id="prov-line"></span>　·　<span>📖 = 已有城市攻略</span>　·　<span id="storage-hint">数据存于本机浏览器</span>
     　·　<a href="javascript:void 0" id="help-toggle" class="help-toggle">用法 ▾</a>
   </p>
   <div class="foot-help" id="foot-help" hidden>
@@ -305,7 +315,7 @@
     <div class="modal">
       <div class="md-title">印主登记</div>
       <div class="md-body">
-        <input id="auth-user" type="text" placeholder="用户名（中文 / 字母 / 数字）" maxlength="20" autocomplete="username">
+        <input id="auth-user" type="text" placeholder="用户名 / 邮箱（与 Sakura Tour 通用）" maxlength="40" autocomplete="username">
         <input id="auth-pass" type="password" placeholder="密码（至少 6 位）" maxlength="72" autocomplete="current-password">
         <div class="md-msg" id="auth-msg"></div>
         <div class="md-btns">
@@ -424,6 +434,7 @@ try { levels = JSON.parse(localStorage.getItem(KEY) || '{}') } catch {}
 // ---------- 账号 ----------
 let token = localStorage.getItem(TOKEN_KEY) || null
 let username = localStorage.getItem(USER_KEY) || null
+let visitedSpots = []   // 共享账号的已打卡景点（Sakura 侧），用于攻略进度展示
 
 // 后端 API 地址。本地/同源部署留空；部署到 GitHub Pages 时改成后端地址，
 // 例如 'https://api.yourdomain.com'（必须 https，且后端已开 CORS）。
@@ -443,7 +454,7 @@ function save() {
   if (!token) return
   clearTimeout(pushTimer)
   pushTimer = setTimeout(() => {
-    api('/api/levels', 'PUT', { levels }).catch(e => {
+    api('/api/user/me', 'PATCH', { regionLevels: levels }).catch(e => {
       if (e.status === 401) setAuth(null, null)  // 会话过期，退回本机模式
     })
   }, 400)
@@ -468,9 +479,8 @@ function renderUserbar() {
   if (username) {
     bar.innerHTML = `<span class="uname">${username}</span><button class="uicon" id="logout" title="退出" aria-label="退出">⏻</button>`
     hint.textContent = '已登录，印记同步到账号'
-    document.getElementById('logout').onclick = async () => {
-      api('/api/logout', 'POST').catch(() => {})
-      setAuth(null, null)
+    document.getElementById('logout').onclick = () => {
+      setAuth(null, null)   // JWT 无状态，清本地 token 即登出
     }
   } else {
     bar.innerHTML = `<button class="uauth" id="open-auth">登录 / 注册</button>`
@@ -695,6 +705,17 @@ function buildMap(grid) {
       fracs[r.code] = f
     }
 
+    if (GUIDES[r.code]) {
+      // 攻略角标：标签格左上角 📖（右上角留给可钻取标记）
+      const g = document.createElementNS(NS, 'text')
+      g.setAttribute('x', (Math.floor(r.lx) - bx0) * CELL + 2.5)
+      g.setAttribute('y', (Math.floor(r.ly) - by0) * CELL + fs(5))
+      g.setAttribute('font-size', fs(5.5))
+      g.setAttribute('class', 'gmark')
+      g.textContent = '📖'
+      gText.appendChild(g)
+    }
+
     if (DRILL[r.code]) {
       // 可钻取角标：放在标签所在格的右上角（必属本单位，不会飘到邻块上）
       const m = document.createElementNS(NS, 'text')
@@ -857,6 +878,18 @@ document.getElementById('legend').innerHTML = LEVELS.map(l =>
 
 const popup = document.getElementById('popup')
 let popupRegion = null
+/* 有深度攻略内容的州市 → Sakura Tour（同一账号，打卡自动回写本图） */
+const GUIDES = {
+  'yn-dali':    { label: '大理攻略', days: 4, spots: 10, prefix: 'd',  url: 'https://sakura.digitalvio.shop/?city=dali' },
+  'yn-lijiang': { label: '丽江攻略', days: 4, spots: 10, prefix: 'l',  url: 'https://sakura.digitalvio.shop/?city=lijiang' },
+  'ad620100':   { label: '兰州攻略', days: 4, spots: 10, prefix: 'lz', url: 'https://sakura.digitalvio.shop/?city=lanzhou' },
+}
+/* 该城已打卡景点数（visitedSpots 来自共享账号，id 前缀即城市） */
+function guideProgress(g) {
+  const re = new RegExp('^' + g.prefix + 'n?\\d+$')
+  return visitedSpots.filter(id => re.test(String(id))).length
+}
+
 function openPopup(e, r) {
   popupRegion = r
   const cur = levels[r.code] || 0
@@ -869,7 +902,19 @@ function openPopup(e, r) {
   } else {
     title = `<div class="pp-title">${r.name}</div>`
   }
-  popup.innerHTML = title +
+  const guide = GUIDES[r.code]
+  let guideRow = ''
+  if (guide) {
+    const done = guideProgress(guide)
+    const sub = done > 0
+      ? `已打卡 ${done}/${guide.spots} 景点 · 继续集章`
+      : (cur >= 3 ? '补打卡景点，集印章' : `${guide.days}日行程 · ${guide.spots}个景点`)
+    guideRow = `<a class="pp-guide" href="${guide.url}" target="_blank" rel="noreferrer">
+      <span class="ppg-book">📖</span>
+      <span class="ppg-main"><b>${guide.label}</b><small>${sub}</small></span>
+      <span class="ppg-arrow">›</span></a>`
+  }
+  popup.innerHTML = title + guideRow +
     LEVELS.map(l => `<button class="pp-item ${l.v===cur?'current':''}" data-v="${l.v}"><span class="lg-sw lv${l.v}"></span>${l.label}</button>`).join('')
   popup.classList.add('open')
   let px = e.clientX + 10, py = e.clientY - 10
@@ -879,6 +924,17 @@ function openPopup(e, r) {
 }
 popup.addEventListener('click', e => {
   if (!popupRegion) return
+  const guideLink = e.target.closest('.pp-guide')
+  if (guideLink && token) {
+    // 已登录：带一次性 SSO 码跳 Sakura，那边自动登录同一账号
+    e.preventDefault()
+    const base = guideLink.href
+    api('/api/auth/sso-code', 'POST').then(d =>
+      window.open(`${base}#sso=${d.code}`, '_blank', 'noreferrer')
+    ).catch(() => window.open(base, '_blank', 'noreferrer'))
+    popup.classList.remove('open')
+    return
+  }
   if (e.target.closest('.pp-enter')) {
     popup.classList.remove('open')
     enterDrill(popupRegion)
@@ -973,10 +1029,17 @@ async function submitAuth(mode) {
   const msg = document.getElementById('auth-msg')
   msg.textContent = ''
   try {
-    const data = await api(`/api/${mode}`, 'POST', { username: user, password: pass })
-    setAuth(data.token, data.username)
+    // 共享账号后端（与 Sakura Tour 同一用户库）：
+    // login 用 email 字段承载「用户名或邮箱」；register 时 name=email=输入值
+    const path = mode === 'login' ? '/api/auth/login' : '/api/auth/register'
+    const body = mode === 'login'
+      ? { email: user, password: pass }
+      : { name: user, email: user, password: pass }
+    const data = await api(path, 'POST', body)
+    setAuth(data.token, data.user.name)
+    visitedSpots = data.user.visitedSpots || []
     // 首次登录：本机印记与账号印记按更深一档合并，再回写账号
-    levels = mergeLevels(data.levels || {}, levels)
+    levels = mergeLevels(data.user.regionLevels || {}, levels)
     save(); refresh()
     authMask.classList.remove('open')
     document.getElementById('auth-pass').value = ''
@@ -992,9 +1055,10 @@ document.getElementById('auth-pass').addEventListener('keydown', e => { if (e.ke
 async function restoreSession() {
   if (!token) return
   try {
-    const data = await api('/api/me')
-    username = data.username
-    levels = data.levels || {}
+    const data = await api('/api/user/me')
+    username = data.name
+    visitedSpots = data.visitedSpots || []
+    levels = data.regionLevels || {}
     localStorage.setItem(KEY, JSON.stringify(levels))
     renderUserbar(); refresh()
   } catch (e) {
@@ -1169,10 +1233,25 @@ document.getElementById('share-img').onclick = () => withBusy(async () => {
   toast('已存图 · 长按图片即可分享到微信')
 })
 
+/* SSO：从 Sakura 带 #sso=code 跳来 → 换 token 自动登录 */
+async function redeemSso() {
+  const m = location.hash.match(/^#sso=([a-f0-9]{48})$/)
+  if (!m) return false
+  history.replaceState(null, '', location.pathname + location.search)
+  try {
+    const data = await api('/api/auth/sso-redeem', 'POST', { code: m[1] })
+    setAuth(data.token, data.user.name)
+    visitedSpots = data.user.visitedSpots || []
+    levels = mergeLevels(data.user.regionLevels || {}, levels)
+    save(); refresh()
+    return true
+  } catch { return false }
+}
+
 renderUserbar()
 renderChina()
 refresh()
-restoreSession()
+redeemSso().then(ok => { if (!ok) restoreSession() })
 </script>
 </body>
 </html>
